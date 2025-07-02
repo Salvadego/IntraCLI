@@ -1,5 +1,7 @@
 github.com/Salvadego/mantis v0.0.0-20250702143254-aff659726c26 h1:5wqGylgoxzHSaEKSs2EqY/KmQb9BQvG7XbJky5XgjZg=
 github.com/Salvadego/mantis v0.0.0-20250702143254-aff659726c26/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
+github.com/Salvadego/mantis v0.0.0-20250702153542-f06c0342b8f5 h1:6Zf/Zmez0yazpnamo+ZlOVJMevwublT5/Nj+W7d92j8=
+github.com/Salvadego/mantis v0.0.0-20250702153542-f06c0342b8f5/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
