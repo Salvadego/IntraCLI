@@ -9,9 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/mantis/mantis"
-
-	"intracli/config"
 
 	"github.com/spf13/cobra"
 )

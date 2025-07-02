@@ -1,6 +1,6 @@
 package main
 
-import "intracli/cmd"
+import "github.com/Salvadego/IntraCLI/cmd"
 
 func main() {
 	cmd.Execute()

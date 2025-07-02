@@ -1,4 +1,4 @@
-module intracli
+module github.com/Salvadego/IntraCLI
 
 go 1.24.4
 
