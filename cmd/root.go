@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"intracli/config"
 	"os"
 	"strings"
+
+	"github.com/Salvadego/IntraCLI/config"
 
 	"github.com/spf13/cobra"
 )
