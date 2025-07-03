@@ -43,7 +43,7 @@ var searchEmployeeCmd = &cobra.Command{
 		}
 
 		if createProfileName != "" {
-			cfg, err := config.LoadConfig()
+			cfg, err := config.InitializeConfig()
 			if err != nil {
 				log.Fatalf("Error loading config: %v", err)
 			}
