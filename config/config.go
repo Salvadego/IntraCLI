@@ -84,3 +84,30 @@ func SaveConfig(cfg *Config) error {
 	}
 	return nil
 }
+
+func InitializeConfig() (*Config, error) {
+	cfg, err := LoadConfig()
+
+	if err != nil {
+		cfgDir, err := GetConfigPath()
+		if err != nil {
+			return nil, err
+		}
+
+		fmt.Printf("Configuration file not found. Creating a default config at %s...\n", cfgDir)
+
+		defaultCfg := &Config{
+			DefaultProfile: "",
+			Profiles:       make(map[string]Profile),
+		}
+
+		saveErr := SaveConfig(defaultCfg)
+		if saveErr != nil {
+			return nil, fmt.Errorf("failed to save default config: %w", saveErr)
+		}
+		fmt.Println("Default config created successfully.")
+		return defaultCfg, nil
+	}
+
+	return cfg, nil
+}

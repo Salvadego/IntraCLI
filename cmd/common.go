@@ -43,9 +43,10 @@ var (
 func initCommonMantisClient(_ *cobra.Command) error {
 	var err error
 
-	appConfig, err = config.LoadConfig()
+	appConfig, err = config.InitializeConfig()
 	if err != nil {
-		appConfig = &config.Config{Profiles: make(map[string]config.Profile)}
+		fmt.Printf("Fatal error during config initialization: %v\n", err)
+		os.Exit(1)
 	}
 
 	currentProfileName := appConfig.DefaultProfile
