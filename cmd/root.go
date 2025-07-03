@@ -38,7 +38,7 @@ func init() {
 			args []string,
 			toComplete string,
 		) ([]string, cobra.ShellCompDirective) {
-			cfg, err := config.LoadConfig()
+			cfg, err := config.InitializeConfig()
 			if err != nil {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
