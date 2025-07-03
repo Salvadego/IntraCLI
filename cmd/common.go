@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"intracli/config"
-
+	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/mantis/mantis"
 	"github.com/spf13/cobra"
 )
