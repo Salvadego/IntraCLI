@@ -46,7 +46,7 @@ func initCommonMantisClient(_ *cobra.Command) error {
 
 	appConfig, err = config.LoadConfig()
 	if err != nil {
-		return fmt.Errorf("error loading configuration: %w", err)
+		appConfig = &config.Config{Profiles: make(map[string]config.Profile)}
 	}
 
 	currentProfileName := appConfig.DefaultProfile
@@ -54,14 +54,20 @@ func initCommonMantisClient(_ *cobra.Command) error {
 		currentProfileName = profileName
 	}
 
-	profile, ok := appConfig.Profiles[currentProfileName]
-	if !ok {
-		return fmt.Errorf("default profile '%s' not found in configuration. Please check your config.yaml", currentProfileName)
+	profile, profileExists := appConfig.Profiles[currentProfileName]
+
+	username := os.Getenv("MANTIS_USERNAME")
+	password := os.Getenv("MANTIS_PASSWORD")
+	if username == "" || password == "" {
+		fmt.Print("Username: ")
+		fmt.Scanln(&username)
+		fmt.Print("Password: ")
+		fmt.Scanln(&password)
 	}
 
 	authConfig := mantis.AuthConfig{
-		Username:     os.Getenv("MANTIS_USERNAME"),
-		Password:     os.Getenv("MANTIS_PASSWORD"),
+		Username:     username,
+		Password:     password,
 		ClientID:     "api.oauth2-client.129d054eed33d25e3b6a714ca101f3b9",
 		ClientSecret: os.Getenv("CLIENT_SECRET"),
 	}
@@ -79,11 +85,13 @@ func initCommonMantisClient(_ *cobra.Command) error {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 
-	currentUser, err = mantisClient.Employee.GetEmployeeById(mantisCtx, profile.UserID)
-	if err != nil {
-		return fmt.Errorf("failed to get employee information for '%d': %w", profile.UserID, err)
+	if profileExists && profile.UserID != 0 {
+		currentUser, err = mantisClient.Employee.GetEmployeeById(mantisCtx, profile.UserID)
+		if err != nil {
+			return fmt.Errorf("failed to get employee information for '%d': %w", profile.UserID, err)
+		}
+		currentUserID = currentUser.UserID
 	}
-	currentUserID = currentUser.UserID
 
 	return nil
 }
