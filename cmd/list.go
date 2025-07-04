@@ -5,9 +5,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/Salvadego/IntraCLI/cache"
 	"github.com/spf13/cobra"
-	"golang.org/x/text/language"
-	"golang.org/x/text/message"
 )
 
 func init() {
@@ -31,6 +30,12 @@ var listTimesheetsCmd = &cobra.Command{
 		timesheets, err := mantisClient.Timesheet.GetTimesheets(mantisCtx, currentUserID)
 		if err != nil {
 			log.Fatalf("Error getting timesheets: %v", err)
+		}
+
+		filename := fmt.Sprintf(cache.TimesheetsCacheFileName, currentUserID)
+		err = cache.WriteToCache(filename, timesheets)
+		if err != nil {
+			log.Printf("Warning: Failed to write timesheets to cache: %v", err)
 		}
 
 		if len(timesheets) == 0 {
@@ -68,7 +73,6 @@ var listTimesheetsCmd = &cobra.Command{
 				continue
 			}
 
-			message.SetString(language.BrazilianPortuguese, "Jan", "jul")
 			mes := meses[int(parsedDate.Month())-1]
 			formatted := fmt.Sprintf("%d de %s %d", parsedDate.Day(), mes, parsedDate.Year())
 
