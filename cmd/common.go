@@ -69,11 +69,11 @@ func initCommonMantisClient(_ *cobra.Command) error {
 		Username:     username,
 		Password:     password,
 		ClientID:     "api.oauth2-client.129d054eed33d25e3b6a714ca101f3b9",
-		ClientSecret: os.Getenv("CLIENT_SECRET"),
+		ClientSecret: "4eb3a90960f666799cb75ab8a68f1d5c",
 	}
 
 	clientConfig := &mantis.ClientConfig{
-		RoleID:   os.Getenv("ROLE_ID"),
+		RoleID:   "1000333",
 		Language: "pt_BR",
 	}
 
