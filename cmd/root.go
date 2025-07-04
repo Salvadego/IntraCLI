@@ -10,12 +10,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func contains(a, b string) bool {
+	return strings.Contains(a, b)
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "intracli",
 	Short: "IntraCLI is a CLI tool for managing Mantis timesheets.",
 	Long:  `A simple CLI tool to interact with the Mantis API.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		if cmd.Name() != "completion" && cmd.Name() != "intracli" {
+		if contains(cmd.Use, "completion"); cmd.Name() != "intracli" {
 			return initCommonMantisClient(cmd)
 		}
 		return nil
