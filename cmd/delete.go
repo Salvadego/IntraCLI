@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Salvadego/IntraCLI/cache"
+	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/mantis/mantis"
 	"github.com/spf13/cobra"
 )
@@ -23,7 +24,27 @@ func init() {
 			args []string,
 			toComplete string,
 		) ([]string, cobra.ShellCompDirective) {
-			filename := fmt.Sprintf(cache.TimesheetsCacheFileName, currentUserID)
+			cfg, err := config.InitializeConfig()
+			if err != nil {
+				log.Printf("Error loading config for completion: %v", err)
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+
+			currentProfileName := cfg.DefaultProfile
+			if profileName != "" {
+				currentProfileName = profileName
+			}
+
+			profile, ok := cfg.Profiles[currentProfileName]
+			if !ok {
+				log.Printf(
+					"Default profile '%s' not found for completion.",
+					cfg.DefaultProfile,
+				)
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+
+			filename := fmt.Sprintf(cache.TimesheetsCacheFileName, profile.UserID)
 			timesheets, err := cache.ReadFromCache[mantis.TimesheetsResponse](filename)
 
 			if err != nil {
