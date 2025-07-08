@@ -122,7 +122,8 @@ func printCalendar(year int, month time.Month, hoursByDay map[int]float64) {
 			continue
 		}
 
-		if isCurrentMonth && day == today.Day() || (!isWeekend && day <= today.Day()) {
+		if isCurrentMonth && day == today.Day() ||
+			(!isWeekend && day <= today.Day()) {
 			fmt.Printf("%s%s%2d%s ", BOLD, RED, day, RESET)
 			continue
 		}

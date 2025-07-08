@@ -50,7 +50,6 @@ func WriteToCache[T any](cacheFileName string, data []T) error {
 	if err := os.WriteFile(cacheFilePath, marshalData, 0644); err != nil {
 		return fmt.Errorf("failed to write timesheets to cache file: %w", err)
 	}
-	log.Printf("Timesheets cached to %s\n", cacheFilePath)
 	return nil
 }
 
