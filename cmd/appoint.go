@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -22,22 +25,19 @@ var (
 	date          string
 	projectAlias  string
 	profileName   string
-	filePath      string
+	useEditor     bool
 	timesheetType string
 )
 
 func init() {
-	appointCmd.Flags().StringVarP(&description, "description", "d", "", "Description of the appointment (required)")
-	appointCmd.Flags().StringVarP(&hoursString, "hours", "H", "", "Hours spent on the appointment (required)")
-	appointCmd.Flags().StringVarP(&date, "date", "D", time.Now().Format("2006-01-02"), "Date of the appointment (YYYY-MM-DD, defaults to today)")
-	appointCmd.Flags().StringVarP(&projectAlias, "project-alias", "p", "", "Alias for the project (required)")
-	appointCmd.Flags().StringVarP(&ticket, "ticket", "t", "", "Optional ticket number associated with the appointment")
-	appointCmd.Flags().StringVarP(&filePath, "file", "f", "", "Opens in the editor to make batch appointments")
-	appointCmd.Flags().StringVarP(&timesheetType, "type", "T", "", "Timesheet Type to make the appointment")
-
-	appointCmd.MarkFlagRequired("description")
-	appointCmd.MarkFlagRequired("hours")
-	appointCmd.MarkFlagRequired("project-alias")
+	flagSet := appointCmd.Flags()
+	flagSet.StringVarP(&description, "description", "d", "", "Description of the appointment (required)")
+	flagSet.StringVarP(&hoursString, "hours", "H", "", "Hours spent on the appointment (required)")
+	flagSet.StringVarP(&date, "date", "D", time.Now().Format("2006-01-02"), "Date of the appointment (YYYY-MM-DD, defaults to today)")
+	flagSet.StringVarP(&projectAlias, "project-alias", "p", "", "Alias for the project (required)")
+	flagSet.StringVarP(&ticket, "ticket", "t", "", "Optional ticket number associated with the appointment")
+	flagSet.StringVarP(&timesheetType, "type", "T", "", "Timesheet Type to make the appointment")
+	flagSet.BoolVarP(&useEditor, "editor", "e", false, "Open default editor to create appointments")
 
 	appointCmd.RegisterFlagCompletionFunc("type",
 		func(
@@ -116,6 +116,23 @@ var appointCmd = &cobra.Command{
 			log.Fatalf("Profile '%s' not found in configuration. Please check your config.yaml.", currentProfileName)
 		}
 
+		if useEditor {
+			processEditorFile(profile, client, userID, ctx)
+			return
+		}
+
+		if description == "" {
+			log.Fatalf("Missing required flags: --description")
+		}
+
+		if hoursString == "" {
+			log.Fatalf("Missing required flags: --hours")
+		}
+
+		if projectAlias == "" {
+			log.Fatalf("Missing required flags: --project-alias")
+		}
+
 		projectInfo, ok := profile.ProjectAliases[projectAlias]
 		if !ok {
 			log.Fatalf("Project alias '%s' not found in your default profile.", projectAlias)
@@ -136,7 +153,7 @@ var appointCmd = &cobra.Command{
 		}
 
 		timesheetTypeKey := "N"
-		if key, ok := timesheetTypeLookup[timesheetType]; ok == true {
+		if key, ok := timesheetTypeLookup[timesheetType]; ok {
 			timesheetTypeKey = key
 		}
 
@@ -244,4 +261,119 @@ func appoint(client *mantis.Client, userID int, entry TimesheetEntry, ctx contex
 		err.Error(),
 	)
 
+}
+
+func processEditorFile(profile config.Profile, client *mantis.Client, userID int, ctx context.Context) {
+	path := filepath.Join(os.Getenv("HOME"), ".local", "share", "intracli")
+	os.MkdirAll(path, 0755)
+	file := filepath.Join(path, "EDIT_APPOINTMENTS")
+
+	template := `# IntraCLI Appointment Editor
+# Each block below represents an appointment.
+# Format:
+# description: Work on feature X
+# hours: 2h
+# date: 2025-07-08
+# project-alias: projx
+# ticket: 12345
+# type: Normal
+#
+# Blank line separates appointments. Lines starting with '#' are ignored.
+#
+# Save and close the file to create appointments.
+
+`
+
+	err := os.WriteFile(file, []byte(template), 0644)
+	if err != nil {
+		log.Fatalf("Failed to write template to file: %v", err)
+	}
+
+	exec_editor := os.Getenv("EDITOR")
+	if exec_editor == "" {
+		exec_editor = "vim"
+	}
+
+	cmd := exec.Command(exec_editor, file)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Fatalf("Error opening editor: %v", err)
+	}
+
+	content, err := os.ReadFile(file)
+	if err != nil {
+		log.Fatalf("Failed to read edited file: %v", err)
+	}
+
+	blocks := strings.SplitSeq(string(content), "\n\n")
+	for block := range blocks {
+		lines := strings.Split(block, "\n")
+		entryMap := make(map[string]string)
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			entryMap[key] = value
+		}
+
+		if entryMap["description"] == "" ||
+			entryMap["hours"] == "" ||
+			entryMap["project-alias"] == "" {
+			continue
+		}
+
+		projectInfo, ok := profile.ProjectAliases[entryMap["project-alias"]]
+		if !ok {
+			log.Printf("Skipping block: unknown project-alias '%s'", entryMap["project-alias"])
+			continue
+		}
+
+		if projectInfo.NeedsTicket && entryMap["ticket"] == "" {
+			log.Printf("Skipping block: project '%s' requires ticket", entryMap["project-alias"])
+			continue
+		}
+
+		parsedHours, err := parseDurationString(entryMap["hours"])
+		if err != nil {
+			log.Printf("Skipping block due to invalid hours: %v", err)
+			continue
+		}
+
+		entryDate := time.Now().Format("2006-01-02")
+		if entryMap["date"] != "" {
+			_, err := time.Parse("2006-01-02", entryMap["date"])
+			if err != nil {
+				log.Printf("Invalid date, using today instead: %v", err)
+			} else {
+				entryDate = entryMap["date"]
+			}
+		}
+
+		timesheetTypeKey := "N"
+		if key, ok := timesheetTypeLookup[entryMap["type"]]; ok {
+			timesheetTypeKey = key
+		}
+
+		timesheetEntry := TimesheetEntry{
+			Date:           entryDate,
+			Description:    entryMap["description"],
+			TicketNo:       entryMap["ticket"],
+			TimesheetType:  timesheetTypeKey,
+			Hours:          parsedHours,
+			SalesOrder:     projectInfo.SalesOrder,
+			SalesOrderLine: projectInfo.SalesOrderLine,
+		}
+
+		fmt.Printf("Creating appointment: %+v\n", timesheetEntry)
+		appoint(client, userID, timesheetEntry, ctx)
+	}
 }
