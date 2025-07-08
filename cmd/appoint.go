@@ -271,6 +271,7 @@ func processEditorFile(profile config.Profile, client *mantis.Client, userID int
 	template := `# IntraCLI Appointment Editor
 # Each block below represents an appointment.
 # Format:
+#
 # description: Work on feature X
 # hours: 2h
 # date: 2025-07-08
