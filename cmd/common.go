@@ -41,7 +41,7 @@ var (
 	}
 )
 
-func initCommonMantisClient(_ *cobra.Command) error {
+func initCommonMantisClient(cmd *cobra.Command) error {
 	var err error
 
 	appConfig, err = config.InitializeConfig()
@@ -86,6 +86,11 @@ func initCommonMantisClient(_ *cobra.Command) error {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 
+	currentUserID = profile.UserID
+	if cmd.Name() == "roles" {
+		return nil
+	}
+
 	if profile.RoleID == 0 {
 		if err := handleMissingRoleID(profile); err != nil {
 			return err
@@ -93,9 +98,15 @@ func initCommonMantisClient(_ *cobra.Command) error {
 	}
 
 	if profileExists && profile.UserID != 0 {
-		currentUser, err = mantisClient.Employee.GetEmployeeById(mantisCtx, profile.UserID)
+		currentUser, err = mantisClient.Employee.GetEmployeeById(
+			mantisCtx,
+			profile.UserID,
+		)
 		if err != nil {
-			return fmt.Errorf("failed to get employee information for '%d': %w", profile.UserID, err)
+			return fmt.Errorf(
+				"failed to get employee information for '%d': %w",
+				profile.UserID, err,
+			)
 		}
 		currentUserID = currentUser.UserID
 	}

@@ -15,12 +15,21 @@ var rootCmd = &cobra.Command{
 	Short: "IntraCLI is a CLI tool for managing Mantis timesheets.",
 	Long:  `A simple CLI tool to interact with the Mantis API.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		if strings.Contains(cmd.Use, "completion") && cmd.Name() != "intracli" {
-			fmt.Println(cmd.Use)
+		if !isCompletionCmd(cmd) &&
+			cmd.Name() != "intracli" {
 			return initCommonMantisClient(cmd)
 		}
 		return nil
 	},
+}
+
+func isCompletionCmd(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "completion" {
+			return true
+		}
+	}
+	return false
 }
 
 func Execute() {
