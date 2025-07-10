@@ -14,6 +14,7 @@ A simple cli tool to use interact with mantis apis.
 - 4th July, 2025: cached timesheets and deletion completion
 - 6th July, 2025: Added cal command for showing a calendar of the timesheets
 - 8th July, 2025: Added editor command for batch appointments
+- 10th July, 2025: Added dynamic roleid.
 
 ## Suggestions
 
