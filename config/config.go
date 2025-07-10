@@ -23,6 +23,7 @@ type Profile struct {
 	EmployeeName   string                  `yaml:"employeeName"`
 	UserID         int                     `yaml:"userID"`
 	ProjectAliases map[string]ProjectAlias `yaml:"projectAliases"`
+	RoleID         int                     `yaml:"roleID"`
 }
 
 type ProjectAlias struct {

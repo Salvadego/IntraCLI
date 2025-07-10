@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/mantis/mantis"
@@ -73,7 +75,7 @@ func initCommonMantisClient(_ *cobra.Command) error {
 	}
 
 	clientConfig := &mantis.ClientConfig{
-		RoleID:   "1000333",
+		RoleID:   strconv.Itoa(profile.RoleID),
 		Language: "pt_BR",
 	}
 
@@ -85,6 +87,12 @@ func initCommonMantisClient(_ *cobra.Command) error {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 
+	if clientConfig.RoleID == "" {
+		if err := handleMissingRoleID(profile); err != nil {
+			return err
+		}
+	}
+
 	if profileExists && profile.UserID != 0 {
 		currentUser, err = mantisClient.Employee.GetEmployeeById(mantisCtx, profile.UserID)
 		if err != nil {
@@ -93,5 +101,52 @@ func initCommonMantisClient(_ *cobra.Command) error {
 		currentUserID = currentUser.UserID
 	}
 
+	return nil
+}
+
+func handleMissingRoleID(profile config.Profile) error {
+	userRoles, err := mantisClient.GetUserRoles(mantisCtx, profile.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve user roles: %w", err)
+	}
+
+	if len(userRoles) == 0 {
+		return fmt.Errorf("no roles available for user %d", profile.UserID)
+	}
+
+	fmt.Println("\nPlease choose your role:")
+	for i, role := range userRoles {
+		fmt.Printf("%d. %s (ID: %d)\n", i+1, role.Name, role.ADRoleID)
+	}
+
+	var choiceStr string
+	var chosenIndex int
+	for {
+		fmt.Print("Enter the number of your chosen role: ")
+		_, err := fmt.Scanln(&choiceStr)
+		if err != nil {
+			return fmt.Errorf("error reading choice: %w", err)
+		}
+
+		choiceStr = strings.TrimSpace(choiceStr)
+		chosenIndex, err = strconv.Atoi(choiceStr)
+		isInvalidChoice := err != nil ||
+			chosenIndex < 1 ||
+			chosenIndex > len(userRoles)
+
+		if isInvalidChoice {
+			fmt.Printf(
+				"Invalid choice. Please enter a number between 1 and %d.\n",
+				len(userRoles),
+			)
+			continue
+		}
+		break
+	}
+
+	selectedRole := userRoles[chosenIndex-1]
+	roleId := strconv.Itoa(int(selectedRole.ADRoleID))
+	mantisClient.SetRoleID(roleId)
+	fmt.Printf("Role set to: %s (ID: %s)\n", selectedRole.Name, roleId)
 	return nil
 }
