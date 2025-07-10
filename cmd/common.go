@@ -87,7 +87,7 @@ func initCommonMantisClient(_ *cobra.Command) error {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 
-	if clientConfig.RoleID == "" {
+	if profile.RoleID == 0 {
 		if err := handleMissingRoleID(profile); err != nil {
 			return err
 		}
