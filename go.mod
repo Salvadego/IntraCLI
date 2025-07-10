@@ -3,7 +3,7 @@ module github.com/Salvadego/IntraCLI
 go 1.24.4
 
 require (
-	github.com/Salvadego/mantis v0.0.0-20250710142851-6a739be305d4
+	github.com/Salvadego/mantis v0.0.0-20250710165026-12d8935cc991
 	github.com/spf13/cobra v1.9.1
 	gopkg.in/yaml.v3 v3.0.1
 )

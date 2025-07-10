@@ -14,7 +14,7 @@ import (
 var modifyProfile bool
 
 func init() {
-	getRolesCmd.Flags().BoolVarP(
+	rolesCmd.Flags().BoolVarP(
 		&modifyProfile,
 		"modify",
 		"m",
@@ -22,10 +22,10 @@ func init() {
 		"Modify current profile configuration to the choosen roleID",
 	)
 
-	rootCmd.AddCommand(getRolesCmd)
+	rootCmd.AddCommand(rolesCmd)
 }
 
-var getRolesCmd = &cobra.Command{
+var rolesCmd = &cobra.Command{
 	Use:   "roles",
 	Short: "Get user roles",
 	Long: "Searchs for the roles in Mantis by a given userID." +
@@ -41,14 +41,6 @@ var getRolesCmd = &cobra.Command{
 			return
 		}
 
-		selectedRole, err := chooseUserRole(userRoles)
-		if err != nil {
-			log.Fatalf("Error getting user role: %v", err)
-		}
-
-		roleId := strconv.Itoa(int(selectedRole.ADRoleID))
-		mantisClient.SetRoleID(roleId)
-
 		currentProfileName := appConfig.DefaultProfile
 		if profileName != "" {
 			currentProfileName = profileName
@@ -58,9 +50,18 @@ var getRolesCmd = &cobra.Command{
 		if !ok {
 			log.Fatalf("Profile '%s' not found in config", currentProfileName)
 		}
+		selectedRole, err := chooseUserRole(userRoles)
+		if err != nil {
+			log.Fatalf("Error getting user role: %v", err)
+		}
+
+		roleId := strconv.Itoa(int(selectedRole.ADRoleID))
+		mantisClient.SetRoleID(roleId)
 		profile.RoleID = int(selectedRole.ADRoleID)
-		fmt.Println(currentProfileName, profile)
+
+		log.Println(currentProfileName, profile)
 		appConfig.Profiles[currentProfileName] = profile
+		log.Println(appConfig)
 		err = config.SaveConfig(appConfig)
 
 		if err != nil {
