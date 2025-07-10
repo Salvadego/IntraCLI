@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/mantis/mantis"
@@ -105,48 +104,22 @@ func initCommonMantisClient(_ *cobra.Command) error {
 }
 
 func handleMissingRoleID(profile config.Profile) error {
-	userRoles, err := mantisClient.GetUserRoles(mantisCtx, profile.UserID)
+	userRoles, err := showUserRoles(profile.UserID)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve user roles: %w", err)
+		return err
 	}
 
-	if len(userRoles) == 0 {
-		return fmt.Errorf("no roles available for user %d", profile.UserID)
+	selectedRole, err := chooseUserRole(userRoles)
+	if err != nil {
+		return err
 	}
 
-	fmt.Println("\nPlease choose your role:")
-	for i, role := range userRoles {
-		fmt.Printf("%d. %s (ID: %d)\n", i+1, role.Name, role.ADRoleID)
-	}
-
-	var choiceStr string
-	var chosenIndex int
-	for {
-		fmt.Print("Enter the number of your chosen role: ")
-		_, err := fmt.Scanln(&choiceStr)
-		if err != nil {
-			return fmt.Errorf("error reading choice: %w", err)
-		}
-
-		choiceStr = strings.TrimSpace(choiceStr)
-		chosenIndex, err = strconv.Atoi(choiceStr)
-		isInvalidChoice := err != nil ||
-			chosenIndex < 1 ||
-			chosenIndex > len(userRoles)
-
-		if isInvalidChoice {
-			fmt.Printf(
-				"Invalid choice. Please enter a number between 1 and %d.\n",
-				len(userRoles),
-			)
-			continue
-		}
-		break
-	}
-
-	selectedRole := userRoles[chosenIndex-1]
 	roleId := strconv.Itoa(int(selectedRole.ADRoleID))
 	mantisClient.SetRoleID(roleId)
+
+	profile.RoleID = int(selectedRole.ADRoleID)
+	appConfig.Profiles[profileName] = profile
+	config.SaveConfig(appConfig)
 	fmt.Printf("Role set to: %s (ID: %s)\n", selectedRole.Name, roleId)
 	return nil
 }
