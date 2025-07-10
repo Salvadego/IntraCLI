@@ -92,11 +92,6 @@ var listProjectsCmd = &cobra.Command{
 				log.Fatalf("Failed to save config: %v", err)
 			}
 
-			err = config.SaveConfig(appConfig)
-			if err != nil {
-				log.Fatalf("Failed to save config: %v", err)
-			}
-
 			fmt.Printf("Alias '%s' saved for project %d (%s).\n", aliasName, selectedProject.ProjectNumber, selectedProject.ProjectTitle)
 			return
 		}
