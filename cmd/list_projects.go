@@ -19,6 +19,37 @@ func init() {
 	listProjectsCmd.Flags().IntVarP(&projectNumber, "project-number", "n", 0, "Project number to associate the alias with (required with --alias)")
 
 	listProjectsCmd.RegisterFlagCompletionFunc("project-number", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		cfg, err := config.InitializeConfig()
+		if err != nil {
+			log.Printf("Error loading config for completion: %v", err)
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		currentProfileName := cfg.DefaultProfile
+		if profileName != "" {
+			currentProfileName = profileName
+		}
+
+		profile, ok := cfg.Profiles[currentProfileName]
+		if !ok {
+			log.Printf(
+				"Default profile '%s' not found for completion.",
+				cfg.DefaultProfile,
+			)
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		if profile.UserID != 0 {
+			currentUser, err = mantisClient.Employee.GetEmployeeById(
+				mantisCtx,
+				profile.UserID,
+			)
+			if err != nil {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			currentUserID = currentUser.UserID
+		}
+
 		projects, err := mantisClient.Timesheet.GetProjectTimesheets(mantisCtx, currentUser.EmployeeCode)
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveNoFileComp
