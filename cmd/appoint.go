@@ -295,7 +295,9 @@ func processEditorFile(profile config.Profile, client *mantis.Client, userID int
 		exec_editor = "vim"
 	}
 
-	cmd := exec.Command(exec_editor, file)
+	editorArgs := strings.Fields(exec_editor)
+	editorArgs = append(editorArgs, file)
+	cmd := exec.Command(editorArgs[0], editorArgs[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
