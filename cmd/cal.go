@@ -18,6 +18,7 @@ const (
 	RED    = "\033[31m"
 	YELLOW = "\033[33m"
 	CYAN   = "\033[36m"
+	BLUE   = "\033[34m"
 	RESET  = "\033[0m"
 )
 
@@ -26,11 +27,22 @@ var (
 		"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
 		"Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 	}
-	showDay int
+	showDay  int
+	calYear  int
+	calMonth int
+	force    bool
+
+	nonBusinessDaysMap = make(map[int]mantis.NonBusinessDay)
+	now                = time.Now()
 )
 
 func init() {
-	calCmd.Flags().IntVarP(&showDay, "day", "d", 0, "Show appointments for a specific day of the month")
+	calCmd.Flags().IntVarP(&showDay, "day", "d", 0,
+		"Show appointments for a specific day of the month")
+	calCmd.Flags().IntVar(&calYear, "year", now.Year(), "Year to show")
+	calCmd.Flags().IntVar(&calMonth, "month", int(now.Month()), "Month to show (1-12)")
+	calCmd.Flags().BoolVarP(&force, "force", "f", false,
+		"Force requests instead of using cached.")
 	rootCmd.AddCommand(calCmd)
 }
 
@@ -41,24 +53,56 @@ var calCmd = &cobra.Command{
 on a calendar-like view for the current month.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		filename := fmt.Sprintf(cache.TimesheetsCacheFileName, currentUserID)
+
 		timesheets, err := mantisClient.Timesheet.GetTimesheets(
 			mantisCtx,
 			currentUserID,
+			calYear,
+			time.Month(calMonth),
 		)
+
 		if err != nil {
 			log.Fatalf("Error getting timesheets for calendar: %v", err)
 		}
+
+		adjacentMonths := []time.Time{
+			time.Date(calYear, time.Month(calMonth)-1, 1, 0, 0, 0, 0, time.Local),
+			time.Date(calYear, time.Month(calMonth)+1, 1, 0, 0, 0, 0, time.Local),
+		}
+
+		for _, t := range adjacentMonths {
+			ts, err := mantisClient.Timesheet.GetTimesheets(mantisCtx, currentUserID, t.Year(), t.Month())
+			if err != nil {
+				log.Printf("Warning: Failed to get timesheets for %d-%02d: %v", t.Year(), t.Month(), err)
+				continue
+			}
+			timesheets = append(timesheets, ts...)
+		}
+
 		err = cache.WriteToCache(filename, timesheets)
 		if err != nil {
 			log.Printf("Warning: Failed to write timesheets to cache: %v", err)
 		}
 
-		hoursByDay := make(map[int]float64)
-		dailyAppointments := make(map[int][]mantis.TimesheetsResponse)
+		nonBusinessDays, err := mantisClient.Calendar.GetNonBusinessDays(
+			mantisCtx,
+			calYear,
+			time.Month(calMonth),
+		)
 
-		now := time.Now()
-		currentYear := now.Year()
-		currentMonth := now.Month()
+		if err != nil {
+			log.Printf("Error getting non-business days: %v\n", err)
+		} else {
+			for _, day := range nonBusinessDays {
+				nonBusinessDaysMap[day.Date.Day()] = day
+			}
+		}
+
+		hoursByDate := make(map[string]float64)
+		dateAppointments := make(map[string][]mantis.TimesheetsResponse)
+
+		currentYear := calYear
+		currentMonth := time.Month(calMonth)
 
 		for _, ts := range timesheets {
 			parsedDate, err := time.Parse("2006-01-02T15:04:05Z", ts.DateDoc)
@@ -68,27 +112,29 @@ on a calendar-like view for the current month.`,
 			}
 
 			if parsedDate.Year() == currentYear && parsedDate.Month() == currentMonth {
-				day := parsedDate.Day()
-				hoursByDay[day] += ts.Quantity
-				dailyAppointments[day] = append(dailyAppointments[day], ts)
+				key := parsedDate.Format("2006-01-02")
+				hoursByDate[key] += ts.Quantity
+				dateAppointments[key] = append(dateAppointments[key], ts)
 			}
 		}
 
 		if showDay != 0 {
+			date := time.Date(calYear, time.Month(calMonth), showDay, 0, 0, 0, 0, time.Local)
+			key := date.Format("2006-01-02")
 			printDailyAppointments(
 				currentYear,
 				currentMonth,
 				showDay,
-				dailyAppointments[showDay],
+				dateAppointments[key],
 			)
 			return
 		}
 
-		printCalendar(currentYear, currentMonth, hoursByDay)
+		printCalendar(currentYear, currentMonth, hoursByDate)
 	},
 }
 
-func printCalendar(year int, month time.Month, hoursByDay map[int]float64) {
+func printCalendar(year int, month time.Month, hoursByDate map[string]float64) {
 	fmt.Printf("      %s %d\n", mesesLong[int(month)-1], year)
 	fmt.Println("do se te qu qu se sá")
 
@@ -110,7 +156,8 @@ func printCalendar(year int, month time.Month, hoursByDay map[int]float64) {
 			fmt.Println()
 		}
 
-		totalHours := hoursByDay[day]
+		key := currentDay.Format("2006-01-02")
+		totalHours := hoursByDate[key]
 
 		if totalHours >= 8.0 {
 			fmt.Printf("%s%s%2d%s ", BOLD, GREEN, day, RESET)
@@ -122,8 +169,24 @@ func printCalendar(year int, month time.Month, hoursByDay map[int]float64) {
 			continue
 		}
 
-		if isCurrentMonth && day == today.Day() ||
-			(!isWeekend && day <= today.Day()) {
+		if isWeekend && (day <= today.Day() || month < today.Month()) {
+			fmt.Printf("%s%2d%s ", BLUE, day, RESET)
+			continue
+		}
+
+		_, ok := nonBusinessDaysMap[day]
+
+		if ok {
+			fmt.Printf("%s%s%2d%s ", BOLD, CYAN, day, RESET)
+			continue
+		}
+
+		if isCurrentMonth && day == today.Day() {
+			fmt.Printf("%s%s%2d%s ", BOLD, RED, day, RESET)
+			continue
+		}
+
+		if !isWeekend && currentDay.Before(today) {
 			fmt.Printf("%s%s%2d%s ", BOLD, RED, day, RESET)
 			continue
 		}
@@ -160,14 +223,14 @@ func printDailyAppointments(
 	)
 
 	if len(appointments) == 0 {
-		fmt.Printf(
-			"%sApontamentos não encontrados para: %d de %s.%s\n",
-			CYAN,
-			day,
-			mesesLong[int(month)-1],
-			RESET,
-		)
-		return
+		if len(appointments) == 0 {
+			if nbd, ok := nonBusinessDaysMap[day]; ok {
+				fmt.Printf("%sDia não útil: %s%s\n", CYAN, nbd.Name, RESET)
+			} else {
+				fmt.Printf("%sApontamentos não encontrados para: %d de %s.%s\n", CYAN, day, mesesLong[int(month)-1], RESET)
+			}
+			return
+		}
 	}
 
 	fmt.Printf(

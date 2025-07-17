@@ -10,6 +10,8 @@ import (
 )
 
 func init() {
+	listTimesheetsCmd.Flags().IntVarP(&calYear, "year", "y", now.Year(), "Year to show")
+	listTimesheetsCmd.Flags().IntVarP(&calMonth, "month", "m", int(now.Month()), "Month to show (1-12)")
 	rootCmd.AddCommand(listTimesheetsCmd)
 }
 
@@ -27,7 +29,13 @@ var listTimesheetsCmd = &cobra.Command{
 	period (based on Mantis's 26th of month logic) for the user in the default
 	profile.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		timesheets, err := mantisClient.Timesheet.GetTimesheets(mantisCtx, currentUserID)
+
+		timesheets, err := mantisClient.Timesheet.GetTimesheets(
+			mantisCtx,
+			currentUserID,
+			calYear,
+			time.Month(calMonth))
+
 		if err != nil {
 			log.Fatalf("Error getting timesheets: %v", err)
 		}
