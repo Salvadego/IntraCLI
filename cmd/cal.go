@@ -53,37 +53,46 @@ var calCmd = &cobra.Command{
 on a calendar-like view for the current month.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		filename := fmt.Sprintf(cache.TimesheetsCacheFileName, currentUserID)
+		var err error
 
-		timesheets, err := mantisClient.Timesheet.GetTimesheets(
-			mantisCtx,
-			currentUserID,
-			calYear,
-			time.Month(calMonth),
-		)
+		var timesheets []mantis.TimesheetsResponse
 
-		if err != nil {
-			log.Fatalf("Error getting timesheets for calendar: %v", err)
-		}
-
-		adjacentMonths := []time.Time{
-			time.Date(calYear, time.Month(calMonth)-1, 1, 0, 0, 0, 0, time.Local),
-			time.Date(calYear, time.Month(calMonth)+1, 1, 0, 0, 0, 0, time.Local),
-		}
-
-		for _, t := range adjacentMonths {
-			ts, err := mantisClient.Timesheet.GetTimesheets(mantisCtx, currentUserID, t.Year(), t.Month())
+		if !force {
+			timesheets, err = cache.ReadFromCache[mantis.TimesheetsResponse](filename)
 			if err != nil {
-				log.Printf("Warning: Failed to get timesheets for %d-%02d: %v", t.Year(), t.Month(), err)
-				continue
+				log.Printf("Warning: failed to read from cache: %v", err)
 			}
-			timesheets = append(timesheets, ts...)
 		}
 
-		err = cache.WriteToCache(filename, timesheets)
-		if err != nil {
-			log.Printf("Warning: Failed to write timesheets to cache: %v", err)
-		}
+		if force || len(timesheets) == 0 {
+			timesheets, err = mantisClient.Timesheet.GetTimesheets(
+				mantisCtx,
+				currentUserID,
+				calYear,
+				time.Month(calMonth),
+			)
+			if err != nil {
+				log.Fatalf("Error getting timesheets: %v", err)
+			}
 
+			adjacentMonths := []time.Time{
+				time.Date(calYear, time.Month(calMonth)-1, 1, 0, 0, 0, 0, time.Local),
+				time.Date(calYear, time.Month(calMonth)+1, 1, 0, 0, 0, 0, time.Local),
+			}
+			for _, t := range adjacentMonths {
+				ts, err := mantisClient.Timesheet.GetTimesheets(mantisCtx, currentUserID, t.Year(), t.Month())
+				if err != nil {
+					log.Printf("Warning: Failed to get timesheets for %d-%02d: %v", t.Year(), t.Month(), err)
+					continue
+				}
+				timesheets = append(timesheets, ts...)
+			}
+
+			err = cache.WriteToCache(filename, timesheets)
+			if err != nil {
+				log.Printf("Warning: Failed to write to cache: %v", err)
+			}
+		}
 		nonBusinessDays, err := mantisClient.Calendar.GetNonBusinessDays(
 			mantisCtx,
 			calYear,
