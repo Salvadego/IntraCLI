@@ -236,16 +236,7 @@ func appoint(client *mantis.Client, userID int, entry TimesheetEntry, ctx contex
 	}
 	fmt.Println("Sending timesheet")
 
-	errors, err := client.Timesheet.Create(ctx, timesheet)
-	if len(errors.Errors) > 0 {
-		fmt.Printf(
-			"Error creating timesheet for %s: %s\n",
-			entry.Date,
-			errors.Errors[0].Message,
-		)
-		return
-	}
-
+	err := client.Timesheet.Create(ctx, timesheet)
 	if err == nil {
 		fmt.Printf(
 			"Successfully created timesheet for %s with %.2f hours\n",
@@ -256,7 +247,7 @@ func appoint(client *mantis.Client, userID int, entry TimesheetEntry, ctx contex
 	}
 
 	fmt.Printf(
-		"Error creating timesheet for %s: %s\n",
+		"Mantis error when creating timesheet for %s: %s\n",
 		entry.Date,
 		err.Error(),
 	)

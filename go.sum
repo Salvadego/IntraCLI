@@ -1,11 +1,9 @@
-github.com/Salvadego/mantis v0.0.0-20250702153542-f06c0342b8f5 h1:6Zf/Zmez0yazpnamo+ZlOVJMevwublT5/Nj+W7d92j8=
-github.com/Salvadego/mantis v0.0.0-20250702153542-f06c0342b8f5/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
-github.com/Salvadego/mantis v0.0.0-20250710141238-4bd95499d395 h1:01/T6odUl/VyMMNlrxQTtgZRW0eTK2GjnjDhmt+MjqU=
-github.com/Salvadego/mantis v0.0.0-20250710141238-4bd95499d395/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
-github.com/Salvadego/mantis v0.0.0-20250710142851-6a739be305d4 h1:9BToKy1uAUytxj6UNL1bcHQtdWKkb84FD9OVtckqYqw=
-github.com/Salvadego/mantis v0.0.0-20250710142851-6a739be305d4/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
 github.com/Salvadego/mantis v0.0.0-20250710165026-12d8935cc991 h1:LG6oEqD7vXE7TWLXFcbleASgkImX5bKOhAysSjS++YE=
 github.com/Salvadego/mantis v0.0.0-20250710165026-12d8935cc991/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
+github.com/Salvadego/mantis v0.0.0-20250717173635-ae76940aeb6a h1:xPpJTOln2HSLj2np+4BZNxm62e/qxOodeuQSx+NQnrI=
+github.com/Salvadego/mantis v0.0.0-20250717173635-ae76940aeb6a/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
+github.com/Salvadego/mantis v0.0.0-20250717174059-a9928a813a0c h1:jU7nKs7p/JfhHlVWM7kVSZKbD8nkhr6bQ7xhAoGYCY0=
+github.com/Salvadego/mantis v0.0.0-20250717174059-a9928a813a0c/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
