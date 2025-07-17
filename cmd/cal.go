@@ -49,7 +49,7 @@ func init() {
 var calCmd = &cobra.Command{
 	Use:   "cal",
 	Short: "Show a calendar with your appointments highlighted",
-	Long: `Retrieves your timesheet entries (appointments) and displays them
+	Long: `Retrieves your timesheet entries (appointments) from cache and displays them
 on a calendar-like view for the current month.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		filename := fmt.Sprintf(cache.TimesheetsCacheFileName, currentUserID)
