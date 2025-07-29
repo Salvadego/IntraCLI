@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const allEmployeesRoleID = 1000333
+
 var employeeNameSearch string
 var createProfileName string
 
@@ -56,6 +58,7 @@ var searchEmployeeCmd = &cobra.Command{
 				EmployeeName:   employee.FullName,
 				UserID:         employee.UserID,
 				ProjectAliases: map[string]config.ProjectAlias{},
+				RoleID:         allEmployeesRoleID,
 			}
 
 			cfg.Profiles[createProfileName] = newProfile
