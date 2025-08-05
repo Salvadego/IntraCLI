@@ -174,7 +174,7 @@ func printCalendar(year int, month time.Month, hoursByDate map[string]float64) {
 		}
 
 		if totalHours > 0 {
-			fmt.Printf("%s%s%d%s ", BOLD, YELLOW, day, RESET)
+			fmt.Printf("%s%s%2d%s ", BOLD, YELLOW, day, RESET)
 			continue
 		}
 
