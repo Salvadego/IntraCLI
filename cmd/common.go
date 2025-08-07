@@ -74,7 +74,6 @@ func initCommonMantisClient(cmd *cobra.Command) error {
 	}
 
 	clientConfig := &mantis.ClientConfig{
-		RoleID:   strconv.Itoa(profile.RoleID),
 		Language: "pt_BR",
 	}
 
@@ -91,10 +90,12 @@ func initCommonMantisClient(cmd *cobra.Command) error {
 		return nil
 	}
 
-	if profile.RoleID == 0 {
-		if err := handleMissingRoleID(profile); err != nil {
+	if appConfig.RoleID == 0 {
+		if err := handleMissingRoleID(appConfig); err != nil {
 			return err
 		}
+	} else {
+		mantisClient.SetRoleID(strconv.Itoa(appConfig.RoleID))
 	}
 
 	if profileExists && profile.UserID != 0 {
@@ -114,8 +115,8 @@ func initCommonMantisClient(cmd *cobra.Command) error {
 	return nil
 }
 
-func handleMissingRoleID(profile config.Profile) error {
-	userRoles, err := showUserRoles(profile.UserID)
+func handleMissingRoleID(appConfig *config.Config) error {
+	userRoles, err := showUserRoles(appConfig.Profiles[appConfig.DefaultProfile].UserID)
 	if err != nil {
 		return err
 	}
@@ -128,8 +129,7 @@ func handleMissingRoleID(profile config.Profile) error {
 	roleId := strconv.Itoa(int(selectedRole.ADRoleID))
 	mantisClient.SetRoleID(roleId)
 
-	profile.RoleID = int(selectedRole.ADRoleID)
-	appConfig.Profiles[profileName] = profile
+	appConfig.RoleID = int(selectedRole.ADRoleID)
 	config.SaveConfig(appConfig)
 	fmt.Printf("Role set to: %s (ID: %s)\n", selectedRole.Name, roleId)
 	return nil

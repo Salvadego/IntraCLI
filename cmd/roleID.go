@@ -57,7 +57,7 @@ var rolesCmd = &cobra.Command{
 
 		roleId := strconv.Itoa(int(selectedRole.ADRoleID))
 		mantisClient.SetRoleID(roleId)
-		profile.RoleID = int(selectedRole.ADRoleID)
+		appConfig.RoleID = int(selectedRole.ADRoleID)
 
 		log.Println(currentProfileName, profile)
 		appConfig.Profiles[currentProfileName] = profile
