@@ -20,25 +20,8 @@ var (
 )
 
 var (
-	timesheetTypeLookup = map[string]string{
-		"Normal":          "N",
-		"OnDuty":          "D",
-		"OnDutyOvertime":  "A",
-		"Overtime":        "S",
-		"OvertimeClosing": "C",
-		"OnNotice":        "O",
-		"Retroactive":     "R",
-	}
-
-	timesheetTypeInverseLookup = map[string]string{
-		"R": "Retroactive",
-		"O": "OnNotice",
-		"C": "OvertimeClosing",
-		"A": "OnDutyOvertime",
-		"N": "Normal",
-		"D": "OnDuty",
-		"S": "Overtime",
-	}
+	timesheetTypeLookup        = map[string]string{}
+	timesheetTypeInverseLookup = map[string]string{}
 )
 
 func initCommonMantisClient(cmd *cobra.Command) error {
@@ -112,7 +95,21 @@ func initCommonMantisClient(cmd *cobra.Command) error {
 		currentUserID = currentUser.UserID
 	}
 
+	// Get the timesheet types
+	timesheetTypes, err := mantisClient.Reference.GetReferenceTypes(mantisCtx, mantis.ReferenceTypeFilter{
+		ColumnName: "MTS_TimesheetType",
+		TableName:  "MTS_Timesheet",
+	})
+	initTimesheetLookups(timesheetTypes)
+
 	return nil
+}
+
+func initTimesheetLookups(timesheetTypes []mantis.ReferenceType) {
+	for _, timesheetType := range timesheetTypes {
+		timesheetTypeLookup[timesheetType.Name] = timesheetType.Value
+		timesheetTypeInverseLookup[timesheetType.Value] = timesheetType.Name
+	}
 }
 
 func handleMissingRoleID(appConfig *config.Config) error {
