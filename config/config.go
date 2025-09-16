@@ -17,7 +17,8 @@ const (
 type Config struct {
 	DefaultProfile string             `yaml:"defaultProfile"`
 	Profiles       map[string]Profile `yaml:"profiles"`
-	RoleID         int                     `yaml:"roleID"`
+	RoleID         int                `yaml:"roleID"`
+	BaseURL        string             `yaml:"baseURL"`
 }
 
 type Profile struct {

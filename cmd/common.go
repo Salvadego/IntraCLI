@@ -58,6 +58,7 @@ func initCommonMantisClient(cmd *cobra.Command) error {
 
 	clientConfig := &mantis.ClientConfig{
 		Language: "pt_BR",
+		BaseURL:  appConfig.BaseURL,
 	}
 
 	mantisClient = mantis.NewClient(authConfig, clientConfig)
