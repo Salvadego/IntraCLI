@@ -16,6 +16,7 @@ A simple cli tool to use interact with mantis apis.
 - 8th July, 2025: Added editor command for batch appointments
 - 10th July, 2025: Added dynamic roleid.
 - 12th August, 2025: Added dynamic timesheet type retrieval.
+- 17th September, 2025: Added filters and editing as well as batch edit together with the filters.
 
 ## Suggestions
 
