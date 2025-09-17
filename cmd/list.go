@@ -6,12 +6,16 @@ import (
 	"time"
 
 	"github.com/Salvadego/IntraCLI/cache"
+	"github.com/Salvadego/IntraCLI/utils"
 	"github.com/spf13/cobra"
 )
 
 func init() {
 	listTimesheetsCmd.Flags().IntVarP(&calYear, "year", "y", now.Year(), "Year to show")
+	listTimesheetsCmd.Flags().StringVar(&filterName, "filter", "", "Apply a saved filter")
 	listTimesheetsCmd.Flags().IntVarP(&calMonth, "month", "m", int(now.Month()), "Month to show (1-12)")
+
+	listTimesheetsCmd.RegisterFlagCompletionFunc("filter", filterNameCompletionFunc)
 	rootCmd.AddCommand(listTimesheetsCmd)
 }
 
@@ -35,6 +39,24 @@ var listTimesheetsCmd = &cobra.Command{
 			currentUserID,
 			calYear,
 			time.Month(calMonth))
+
+		currentProfileName := appConfig.DefaultProfile
+		if profileName != "" {
+			currentProfileName = profileName
+		}
+
+		profile, profileExists := appConfig.Profiles[currentProfileName]
+		if !profileExists {
+			log.Fatalf("Profile '%s' not found", currentProfileName)
+		}
+
+		if filterName != "" {
+			f, ok := appConfig.SavedFilters[filterName]
+			if !ok {
+				log.Fatalf("Filter '%s' not found", filterName)
+			}
+			timesheets = utils.ApplyFilter(timesheets, f, profile)
+		}
 
 		if err != nil {
 			log.Fatalf("Error getting timesheets: %v", err)

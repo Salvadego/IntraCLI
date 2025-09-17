@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Salvadego/IntraCLI/cache"
+	"github.com/Salvadego/IntraCLI/utils"
 	"github.com/Salvadego/mantis/mantis"
 	"github.com/spf13/cobra"
 )
@@ -27,10 +28,11 @@ var (
 		"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
 		"Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 	}
-	showDay  int
-	calYear  int
-	calMonth int
-	force    bool
+	showDay    int
+	calYear    int
+	filterName string
+	calMonth   int
+	force      bool
 
 	nonBusinessDaysMap = make(map[int]mantis.NonBusinessDay)
 	now                = time.Now()
@@ -43,6 +45,8 @@ func init() {
 	calCmd.Flags().IntVar(&calMonth, "month", int(now.Month()), "Month to show (1-12)")
 	calCmd.Flags().BoolVarP(&force, "force", "f", false,
 		"Force requests instead of using cached.")
+	calCmd.Flags().StringVarP(&filterName, "filter", "F", "", "Use a saved filter for batch editing")
+	calCmd.RegisterFlagCompletionFunc("filter", filterNameCompletionFunc)
 	rootCmd.AddCommand(calCmd)
 }
 
@@ -93,6 +97,25 @@ on a calendar-like view for the current month.`,
 				log.Printf("Warning: Failed to write to cache: %v", err)
 			}
 		}
+
+		currentProfileName := appConfig.DefaultProfile
+		if profileName != "" {
+			currentProfileName = profileName
+		}
+
+		profile, profileExists := appConfig.Profiles[currentProfileName]
+		if !profileExists {
+			log.Fatalf("Profile '%s' not found", currentProfileName)
+		}
+
+		if filterName != "" {
+			f, ok := appConfig.SavedFilters[filterName]
+			if !ok {
+				log.Fatalf("Filter '%s' not found", filterName)
+			}
+			timesheets = utils.ApplyFilter(timesheets, f, profile)
+		}
+
 		nonBusinessDays, err := mantisClient.Calendar.GetNonBusinessDays(
 			mantisCtx,
 			calYear,

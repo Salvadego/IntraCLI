@@ -8,7 +8,7 @@ require (
 )
 
 require (
-	github.com/Salvadego/mantis v0.0.0-20250812184422-894ed5b8f2b3 // indirect
+	github.com/Salvadego/mantis v0.0.0-20250917185936-8e7a85fb72df // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 )

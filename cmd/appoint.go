@@ -39,57 +39,8 @@ func init() {
 	flagSet.StringVarP(&timesheetType, "type", "T", "", "Timesheet Type to make the appointment")
 	flagSet.BoolVarP(&useEditor, "editor", "e", false, "Open default editor to create appointments")
 
-	appointCmd.RegisterFlagCompletionFunc("type",
-		func(
-			cmd *cobra.Command,
-			args []string,
-			toComplete string,
-		) ([]string, cobra.ShellCompDirective) {
-
-			var timesheetTypes []string
-			for t := range timesheetTypeLookup {
-				if strings.HasPrefix(t, toComplete) {
-					timesheetTypes = append(timesheetTypes, t)
-				}
-			}
-
-			return timesheetTypes, cobra.ShellCompDirectiveNoFileComp
-		})
-
-	appointCmd.RegisterFlagCompletionFunc("project-alias",
-		func(
-			cmd *cobra.Command,
-			args []string,
-			toComplete string,
-		) ([]string, cobra.ShellCompDirective) {
-			cfg, err := config.InitializeConfig()
-			if err != nil {
-				log.Printf("Error loading config for completion: %v", err)
-				return nil, cobra.ShellCompDirectiveNoFileComp
-			}
-
-			currentProfileName := cfg.DefaultProfile
-			if profileName != "" {
-				currentProfileName = profileName
-			}
-
-			profile, ok := cfg.Profiles[currentProfileName]
-			if !ok {
-				log.Printf(
-					"Default profile '%s' not found for completion.",
-					cfg.DefaultProfile,
-				)
-				return nil, cobra.ShellCompDirectiveNoFileComp
-			}
-
-			var aliases []string
-			for alias := range profile.ProjectAliases {
-				if strings.HasPrefix(alias, toComplete) {
-					aliases = append(aliases, alias)
-				}
-			}
-			return aliases, cobra.ShellCompDirectiveNoFileComp
-		})
+	appointCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
+	appointCmd.RegisterFlagCompletionFunc("project-alias", projectAliasCompletionFunc)
 
 	rootCmd.AddCommand(appointCmd)
 }

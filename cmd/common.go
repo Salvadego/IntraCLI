@@ -3,8 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/mantis/mantis"
@@ -131,4 +133,68 @@ func handleMissingRoleID(appConfig *config.Config) error {
 	config.SaveConfig(appConfig)
 	fmt.Printf("Role set to: %s (ID: %s)\n", selectedRole.Name, roleId)
 	return nil
+}
+
+func typeCompletionFunc(
+	cmd *cobra.Command,
+	args []string,
+	toComplete string,
+) ([]string, cobra.ShellCompDirective) {
+
+	var timesheetTypes []string
+	for t := range timesheetTypeLookup {
+		if strings.HasPrefix(t, toComplete) {
+			timesheetTypes = append(timesheetTypes, t)
+		}
+	}
+
+	return timesheetTypes, cobra.ShellCompDirectiveNoFileComp
+}
+
+func projectAliasCompletionFunc(
+	cmd *cobra.Command,
+	args []string,
+	toComplete string,
+) ([]string, cobra.ShellCompDirective) {
+	cfg, err := config.InitializeConfig()
+	if err != nil {
+		log.Printf("Error loading config for completion: %v", err)
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	currentProfileName := cfg.DefaultProfile
+	if profileName != "" {
+		currentProfileName = profileName
+	}
+
+	profile, ok := cfg.Profiles[currentProfileName]
+	if !ok {
+		log.Printf(
+			"Default profile '%s' not found for completion.",
+			cfg.DefaultProfile,
+		)
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var aliases []string
+	for alias := range profile.ProjectAliases {
+		if strings.HasPrefix(alias, toComplete) {
+			aliases = append(aliases, alias)
+		}
+	}
+	return aliases, cobra.ShellCompDirectiveNoFileComp
+}
+
+func filterNameCompletionFunc(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	cfg, err := config.InitializeConfig()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	var completions []string
+	for name := range cfg.SavedFilters {
+		if strings.HasPrefix(name, toComplete) {
+			completions = append(completions, name)
+		}
+	}
+	return completions, cobra.ShellCompDirectiveNoFileComp
 }
