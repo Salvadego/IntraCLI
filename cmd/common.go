@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Salvadego/IntraCLI/config"
+	"github.com/Salvadego/IntraCLI/utils"
 	"github.com/Salvadego/mantis/mantis"
 	"github.com/spf13/cobra"
 )
@@ -19,11 +20,6 @@ var (
 	currentUser   mantis.Employee
 	currentUserID int
 	appConfig     *config.Config
-)
-
-var (
-	timesheetTypeLookup        = map[string]string{}
-	timesheetTypeInverseLookup = map[string]string{}
 )
 
 func initCommonMantisClient(cmd *cobra.Command) error {
@@ -110,8 +106,8 @@ func initCommonMantisClient(cmd *cobra.Command) error {
 
 func initTimesheetLookups(timesheetTypes []mantis.ReferenceType) {
 	for _, timesheetType := range timesheetTypes {
-		timesheetTypeLookup[timesheetType.Name] = timesheetType.Value
-		timesheetTypeInverseLookup[timesheetType.Value] = timesheetType.Name
+		utils.TimesheetTypeLookup[timesheetType.Name] = timesheetType.Value
+		utils.TimesheetTypeInverseLookup[timesheetType.Value] = timesheetType.Name
 	}
 }
 
@@ -142,7 +138,7 @@ func typeCompletionFunc(
 ) ([]string, cobra.ShellCompDirective) {
 
 	var timesheetTypes []string
-	for t := range timesheetTypeLookup {
+	for t := range utils.TimesheetTypeLookup {
 		if strings.HasPrefix(t, toComplete) {
 			timesheetTypes = append(timesheetTypes, t)
 		}

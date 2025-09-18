@@ -1,12 +1,19 @@
 package utils
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/IntraCLI/types"
 	"github.com/Salvadego/mantis/mantis"
+)
+
+var (
+	TimesheetTypeLookup        = map[string]string{}
+	TimesheetTypeInverseLookup = map[string]string{}
 )
 
 func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetFilter, profile config.Profile) []mantis.TimesheetsResponse {
@@ -56,6 +63,69 @@ func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetF
 		// Only with ticket
 		if filter.HasTicketOnly && ts.TicketNo == "" {
 			match = false
+		}
+
+		// Description should be a regex
+		if filter.Description != "" {
+			re, err := regexp.Compile(filter.Description)
+			if err != nil {
+				continue
+			}
+			if !re.MatchString(ts.Description) {
+				match = false
+			}
+		}
+
+		// Quantity Filtering (Comparison)
+		if filter.Quantity != "" {
+			// Example format of filter.Quantity: ">10", "<=20", ">=100", "=50"
+
+			parts := strings.SplitN(filter.Quantity, " ", 2)
+			if len(parts) != 2 {
+				continue // Skip invalid format
+			}
+
+			// Operator and value
+			operator := parts[0]
+			quantityStr := parts[1]
+
+			quantity, err := strconv.ParseFloat(quantityStr, 64)
+			if err != nil {
+				continue // Skip if not a valid number
+			}
+
+			// Apply the comparison
+			switch operator {
+			case ">":
+				if ts.Quantity <= quantity {
+					match = false
+				}
+			case "<":
+				if ts.Quantity >= quantity {
+					match = false
+				}
+			case ">=":
+				if ts.Quantity < quantity {
+					match = false
+				}
+			case "<=":
+				if ts.Quantity > quantity {
+					match = false
+				}
+			case "=":
+				if ts.Quantity != quantity {
+					match = false
+				}
+			default:
+				continue // Skip if operator is not valid
+			}
+		}
+
+		if filter.Type != "" {
+			typeValue, exists := TimesheetTypeInverseLookup[filter.Type]
+			if !exists || typeValue != ts.TimesheetType {
+				match = false
+			}
 		}
 
 		if match {

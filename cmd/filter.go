@@ -10,13 +10,16 @@ import (
 )
 
 var (
-	filterSaveName string
-	filterList     bool
-	fromDate       string
-	toDate         string
-	filterTicket   string
-	filterProject  string
-	hasTicketOnly  bool
+	filterSaveName    string
+	filterList        bool
+	fromDate          string
+	toDate            string
+	filterTicket      string
+	filterProject     string
+	filterType        string
+	filterDescription string
+	filterQuantity    string
+	hasTicketOnly     bool
 )
 
 func init() {
@@ -27,9 +30,13 @@ func init() {
 	filterTimesheetsCmd.Flags().StringVar(&filterTicket, "ticket", "", "Filter by ticket number (contains)")
 	filterTimesheetsCmd.Flags().StringVar(&filterProject, "project", "", "Filter by project (substring match)")
 	filterTimesheetsCmd.Flags().BoolVar(&hasTicketOnly, "has-ticket-only", false, "Only timesheets with a ticket")
+	filterTimesheetsCmd.Flags().StringVar(&filterType, "type", "", "Filter by timesheet type")
+	filterTimesheetsCmd.Flags().StringVar(&filterDescription, "description", "", "Filter by description (substring match)")
+	filterTimesheetsCmd.Flags().StringVar(&filterQuantity, "quantity", "", "Filter by quantity [>=|<=|=|<|>]<number>")
 
 	filterTimesheetsCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
 	filterTimesheetsCmd.RegisterFlagCompletionFunc("project-alias", projectAliasCompletionFunc)
+	filterTimesheetsCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
 
 	rootCmd.AddCommand(filterTimesheetsCmd)
 }
@@ -67,6 +74,9 @@ Examples:
 			Ticket:        filterTicket,
 			Project:       filterProject,
 			HasTicketOnly: hasTicketOnly,
+			Type:          filterType,
+			Description:   filterDescription,
+			Quantity:      filterQuantity,
 		}
 
 		if filterSaveName != "" {

@@ -97,7 +97,7 @@ var listTimesheetsCmd = &cobra.Command{
 				continue
 			}
 
-			parsedTimesheetType, ok := timesheetTypeInverseLookup[ts.TimesheetType]
+			parsedTimesheetType, ok := utils.TimesheetTypeInverseLookup[ts.TimesheetType]
 
 			if !ok {
 				continue

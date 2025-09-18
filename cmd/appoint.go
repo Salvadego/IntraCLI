@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Salvadego/IntraCLI/config"
+	"github.com/Salvadego/IntraCLI/utils"
 	"github.com/Salvadego/mantis/mantis"
 
 	"github.com/spf13/cobra"
@@ -104,7 +105,7 @@ var appointCmd = &cobra.Command{
 		}
 
 		timesheetTypeKey := "N"
-		if key, ok := timesheetTypeLookup[timesheetType]; ok {
+		if key, ok := utils.TimesheetTypeLookup[timesheetType]; ok {
 			timesheetTypeKey = key
 		}
 
@@ -304,7 +305,7 @@ func processEditorFile(profile config.Profile, client *mantis.Client, userID int
 		}
 
 		timesheetTypeKey := "N"
-		if key, ok := timesheetTypeLookup[entryMap["type"]]; ok {
+		if key, ok := utils.TimesheetTypeLookup[entryMap["type"]]; ok {
 			timesheetTypeKey = key
 		}
 

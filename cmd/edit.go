@@ -140,7 +140,7 @@ var editCmd = &cobra.Command{
 			// Timesheet type
 			tsType := ts.TimesheetType
 			if editTimesheetType != "" {
-				if key, ok := timesheetTypeLookup[editTimesheetType]; ok {
+				if key, ok := utils.TimesheetTypeLookup[editTimesheetType]; ok {
 					tsType = key
 				} else {
 					log.Fatalf("Unknown timesheet type '%s'", editTimesheetType)
