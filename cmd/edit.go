@@ -5,7 +5,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/IntraCLI/types"
 	"github.com/Salvadego/IntraCLI/utils"
 	"github.com/Salvadego/mantis/mantis"
@@ -64,7 +63,7 @@ var editCmd = &cobra.Command{
 			if err != nil {
 				log.Fatalf("Failed to fetch timesheets: %v", err)
 			}
-			timesheets = append(timesheets, ts[0]
+			timesheets = append(timesheets, ts[0])
 		} else if editFilterName != "" {
 			filter, ok := cfg.SavedFilters[editFilterName]
 			if !ok {
