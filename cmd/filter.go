@@ -11,6 +11,7 @@ import (
 
 var (
 	filterSaveName    string
+	filterDeleteName  string
 	filterList        bool
 	fromDate          string
 	toDate            string
@@ -25,6 +26,8 @@ var (
 func init() {
 	filterTimesheetsCmd.Flags().StringVar(&filterSaveName, "save", "", "Save filter with given name")
 	filterTimesheetsCmd.Flags().BoolVar(&filterList, "list", false, "List saved filters")
+	filterTimesheetsCmd.Flags().StringVar(&filterDeleteName, "delete", "", "Delete filter with given name")
+
 	filterTimesheetsCmd.Flags().StringVar(&fromDate, "from", "", "Filter from date (YYYY-MM-DD)")
 	filterTimesheetsCmd.Flags().StringVar(&toDate, "to", "", "Filter to date (YYYY-MM-DD)")
 	filterTimesheetsCmd.Flags().StringVar(&filterTicket, "ticket", "", "Filter by ticket number (contains)")
@@ -36,6 +39,7 @@ func init() {
 
 	filterTimesheetsCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
 	filterTimesheetsCmd.RegisterFlagCompletionFunc("project", projectAliasCompletionFunc)
+	filterTimesheetsCmd.RegisterFlagCompletionFunc("delete", filterNameCompletionFunc)
 
 	rootCmd.AddCommand(filterTimesheetsCmd)
 }
@@ -62,6 +66,15 @@ Examples:
 			for name, f := range cfg.SavedFilters {
 				fmt.Printf(" - %s: %+v\n", name, f)
 			}
+			return
+		}
+
+		if filterDeleteName != "" {
+			delete(cfg.SavedFilters, filterDeleteName)
+			if err := config.SaveConfig(cfg); err != nil {
+				log.Fatalf("Failed to save filter: %v", err)
+			}
+			fmt.Printf("Filter '%s' deleted.\n", filterDeleteName)
 			return
 		}
 
