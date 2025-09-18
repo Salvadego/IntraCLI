@@ -40,10 +40,10 @@ var deleteTimesheetCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		if editFilterName != "" {
-			filter, ok := cfg.SavedFilters[editFilterName]
+		if filterName != "" {
+			filter, ok := cfg.SavedFilters[filterName]
 			if !ok {
-				log.Fatalf("Saved filter '%s' not found", editFilterName)
+				log.Fatalf("Saved filter '%s' not found", filterName)
 			}
 
 			all, err := client.Timesheet.GetTimesheets(ctx, currentUserID, time.Now().Year(), time.Now().Month())
@@ -55,7 +55,7 @@ var deleteTimesheetCmd = &cobra.Command{
 		}
 
 		if timesheetID != 0 {
-			fmt.Printf("Attempting to delete timesheets: %d\n", timesheetID)
+			fmt.Printf("Attempting to delete timesheet: %d\n", timesheetID)
 			err = mantisClient.Timesheet.DeleteTimesheet(mantisCtx, timesheetID)
 			if err != nil {
 				log.Fatalf("Error deleting timesheet %d: %v", timesheetID, err)
@@ -63,7 +63,7 @@ var deleteTimesheetCmd = &cobra.Command{
 		}
 
 		for _, ts := range timesheets {
-			fmt.Printf("Attempting to delete timesheets: %d\n", ts.TimesheetID)
+			fmt.Printf("Attempting to delete timesheet: %d\n", ts.TimesheetID)
 			err = mantisClient.Timesheet.DeleteTimesheet(mantisCtx, ts.TimesheetID)
 			if err != nil {
 				log.Fatalf("Error deleting timesheet %d: %v", timesheetID, err)
