@@ -78,17 +78,20 @@ Examples:
 			Quantity:      filterQuantity,
 		}
 
-		if filterSaveName != "" {
-			if cfg.SavedFilters == nil {
-				cfg.SavedFilters = make(map[string]types.TimesheetFilter)
-			}
-			cfg.SavedFilters[filterSaveName] = filter
-			if err := config.SaveConfig(cfg); err != nil {
-				log.Fatalf("Failed to save filter: %v", err)
-			}
-			fmt.Printf("Filter '%s' saved.\n", filterSaveName)
-		} else {
+		if filterSaveName == "" {
 			fmt.Println("No action taken. Use --save <name> to save or --list to list filters.")
+			return
 		}
+
+		if cfg.SavedFilters == nil {
+			cfg.SavedFilters = make(map[string]types.TimesheetFilter)
+		}
+
+		cfg.SavedFilters[filterSaveName] = filter
+		if err := config.SaveConfig(cfg); err != nil {
+			log.Fatalf("Failed to save filter: %v", err)
+		}
+		fmt.Printf("Filter '%s' saved.\n", filterSaveName)
+
 	},
 }
