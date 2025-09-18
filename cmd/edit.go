@@ -39,6 +39,7 @@ func init() {
 	editCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
 	editCmd.RegisterFlagCompletionFunc("project-alias", projectAliasCompletionFunc)
 	editCmd.RegisterFlagCompletionFunc("filter", filterNameCompletionFunc)
+	editCmd.RegisterFlagCompletionFunc("id", timesheetIdCompletionFunc)
 
 	rootCmd.AddCommand(editCmd)
 }
@@ -59,17 +60,11 @@ var editCmd = &cobra.Command{
 		var timesheets []mantis.TimesheetsResponse
 
 		if editTimesheetID != 0 {
-			// Fetch single timesheet
-			all, err := client.Timesheet.GetTimesheets(ctx, currentUserID, time.Now().Year(), time.Now().Month())
+			ts, err := client.Timesheet.Get(ctx, timesheetID)
 			if err != nil {
 				log.Fatalf("Failed to fetch timesheets: %v", err)
 			}
-			for _, ts := range all {
-				if ts.TimesheetID == editTimesheetID {
-					timesheets = append(timesheets, ts)
-					break
-				}
-			}
+			timesheets = append(timesheets, ts[0]
 		} else if editFilterName != "" {
 			filter, ok := cfg.SavedFilters[editFilterName]
 			if !ok {
@@ -169,16 +164,4 @@ var editCmd = &cobra.Command{
 			appoint(client, currentUserID, entry, ctx)
 		}
 	},
-}
-
-func getCurrentProfile(cfg *config.Config) (config.Profile, error) {
-	name := cfg.DefaultProfile
-	if profileName != "" {
-		name = profileName
-	}
-	p, ok := cfg.Profiles[name]
-	if !ok {
-		return config.Profile{}, fmt.Errorf("profile '%s' not found", name)
-	}
-	return p, nil
 }

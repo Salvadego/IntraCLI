@@ -7,7 +7,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/Salvadego/IntraCLI/cache"
 	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/IntraCLI/types"
 	"github.com/Salvadego/mantis/mantis"
@@ -193,4 +195,71 @@ func filterNameCompletionFunc(cmd *cobra.Command, args []string, toComplete stri
 		}
 	}
 	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+func timesheetIdCompletionFunc(
+	cmd *cobra.Command,
+	args []string,
+	toComplete string,
+) ([]string, cobra.ShellCompDirective) {
+	cfg, err := config.InitializeConfig()
+	if err != nil {
+		log.Printf("Error loading config for completion: %v", err)
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	currentProfileName := cfg.DefaultProfile
+	if profileName != "" {
+		currentProfileName = profileName
+	}
+
+	profile, ok := cfg.Profiles[currentProfileName]
+	if !ok {
+		log.Printf(
+			"Default profile '%s' not found for completion.",
+			cfg.DefaultProfile,
+		)
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	filename := fmt.Sprintf(cache.TimesheetsCacheFileName, profile.UserID)
+	timesheets, err := cache.ReadFromCache[mantis.TimesheetsResponse](filename)
+
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var completions []string
+	for _, ts := range timesheets {
+		timesheetIDStr := strconv.Itoa(ts.TimesheetID)
+		var comment string
+
+		parsedDate, err := time.Parse("2006-01-02T15:04:05Z", ts.DateDoc)
+		if err == nil {
+			mes := meses[int(parsedDate.Month())-1]
+			formattedDate := fmt.Sprintf("%d de %s", parsedDate.Day(), mes)
+			comment = fmt.Sprintf("(%.2f) %s [%s]", ts.Quantity, ts.Description, formattedDate)
+		} else {
+			comment = ts.Description
+		}
+
+		completions = append(
+			completions,
+			fmt.Sprintf("%s\t%s", timesheetIDStr, comment),
+		)
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+func getCurrentProfile(cfg *config.Config) (config.Profile, error) {
+	name := cfg.DefaultProfile
+	if profileName != "" {
+		name = profileName
+	}
+	p, ok := cfg.Profiles[name]
+	if !ok {
+		return config.Profile{}, fmt.Errorf("profile '%s' not found", name)
+	}
+	return p, nil
 }

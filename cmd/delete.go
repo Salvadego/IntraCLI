@@ -3,11 +3,9 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"time"
 
-	"github.com/Salvadego/IntraCLI/cache"
-	"github.com/Salvadego/IntraCLI/config"
+	"github.com/Salvadego/IntraCLI/utils"
 	"github.com/Salvadego/mantis/mantis"
 	"github.com/spf13/cobra"
 )
@@ -16,64 +14,9 @@ var timesheetID int
 
 func init() {
 	deleteTimesheetCmd.Flags().IntVarP(&timesheetID, "id", "i", 0, "ID of the timesheet to delete (required)")
-	deleteTimesheetCmd.MarkFlagRequired("id")
+	deleteTimesheetCmd.Flags().StringVar(&filterName, "filter", "", "Filter to use for deleting timesheets")
 
-	deleteTimesheetCmd.RegisterFlagCompletionFunc("id",
-		func(
-			cmd *cobra.Command,
-			args []string,
-			toComplete string,
-		) ([]string, cobra.ShellCompDirective) {
-			cfg, err := config.InitializeConfig()
-			if err != nil {
-				log.Printf("Error loading config for completion: %v", err)
-				return nil, cobra.ShellCompDirectiveNoFileComp
-			}
-
-			currentProfileName := cfg.DefaultProfile
-			if profileName != "" {
-				currentProfileName = profileName
-			}
-
-			profile, ok := cfg.Profiles[currentProfileName]
-			if !ok {
-				log.Printf(
-					"Default profile '%s' not found for completion.",
-					cfg.DefaultProfile,
-				)
-				return nil, cobra.ShellCompDirectiveNoFileComp
-			}
-
-			filename := fmt.Sprintf(cache.TimesheetsCacheFileName, profile.UserID)
-			timesheets, err := cache.ReadFromCache[mantis.TimesheetsResponse](filename)
-
-			if err != nil {
-				return nil, cobra.ShellCompDirectiveNoFileComp
-			}
-
-			var completions []string
-			for _, ts := range timesheets {
-				timesheetIDStr := strconv.Itoa(ts.TimesheetID)
-				var comment string
-
-				parsedDate, err := time.Parse("2006-01-02T15:04:05Z", ts.DateDoc)
-				if err == nil {
-					mes := meses[int(parsedDate.Month())-1]
-					formattedDate := fmt.Sprintf("%d de %s", parsedDate.Day(), mes)
-					comment = fmt.Sprintf("(%.2f) %s [%s]", ts.Quantity, ts.Description, formattedDate)
-				} else {
-					comment = ts.Description
-				}
-
-				completions = append(
-					completions,
-					fmt.Sprintf("%s\t%s", timesheetIDStr, comment),
-				)
-			}
-
-			return completions, cobra.ShellCompDirectiveNoFileComp
-		},
-	)
+	deleteTimesheetCmd.RegisterFlagCompletionFunc("id", timesheetIdCompletionFunc)
 
 	rootCmd.AddCommand(deleteTimesheetCmd)
 }
@@ -83,16 +26,48 @@ var deleteTimesheetCmd = &cobra.Command{
 	Short: "Delete a specific timesheet entry",
 	Long:  `Deletes a timesheet entry from Mantis using its unique ID. Use 'list-timesheets' to find IDs.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if timesheetID == 0 {
-			log.Fatal("Error: Timesheet ID cannot be 0. Please provide a valid ID using --id (-i).")
+		if timesheetID != 0 && filterName == "" {
+			log.Fatal("Error: No timesheet ID or filter provided. Please provide a valid ID using --id (-i) or --filter.")
 		}
 
-		fmt.Printf("Attempting to delete timesheet with ID: %d\n", timesheetID)
-		err := mantisClient.Timesheet.DeleteTimesheet(mantisCtx, timesheetID)
+		var timesheets []mantis.TimesheetsResponse
+		client := mantisClient
+		ctx := mantisCtx
+		cfg := appConfig
+
+		profile, err := getCurrentProfile(cfg)
 		if err != nil {
-			log.Fatalf("Error deleting timesheet %d: %v", timesheetID, err)
+			log.Fatal(err)
+		}
+		if editFilterName != "" {
+			filter, ok := cfg.SavedFilters[editFilterName]
+			if !ok {
+				log.Fatalf("Saved filter '%s' not found", editFilterName)
+			}
+
+			all, err := client.Timesheet.GetTimesheets(ctx, currentUserID, time.Now().Year(), time.Now().Month())
+			if err != nil {
+				log.Fatalf("Failed to fetch timesheets: %v", err)
+			}
+
+			timesheets = utils.ApplyFilter(all, filter, profile)
 		}
 
-		fmt.Printf("Successfully deleted timesheet with ID: %d\n", timesheetID)
+		if timesheetID != 0 {
+			fmt.Printf("Attempting to delete timesheets: %d\n", timesheetID)
+			err = mantisClient.Timesheet.DeleteTimesheet(mantisCtx, timesheetID)
+			if err != nil {
+				log.Fatalf("Error deleting timesheet %d: %v", timesheetID, err)
+			}
+		}
+
+		for _, ts := range timesheets {
+			fmt.Printf("Attempting to delete timesheets: %d\n", ts.TimesheetID)
+			err = mantisClient.Timesheet.DeleteTimesheet(mantisCtx, ts.TimesheetID)
+			if err != nil {
+				log.Fatalf("Error deleting timesheet %d: %v", timesheetID, err)
+			}
+		}
+
 	},
 }
