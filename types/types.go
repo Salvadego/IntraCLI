@@ -11,3 +11,8 @@ type TimesheetFilter struct {
 	Project       string `yaml:"project"`
 	HasTicketOnly bool   `yaml:"hasTicketOnly"`
 }
+
+var (
+	TimesheetTypeLookup        = map[string]string{}
+	TimesheetTypeInverseLookup = map[string]string{}
+)

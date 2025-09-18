@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Salvadego/IntraCLI/cache"
+	"github.com/Salvadego/IntraCLI/types"
 	"github.com/Salvadego/IntraCLI/utils"
 	"github.com/spf13/cobra"
 )
@@ -97,7 +98,7 @@ var listTimesheetsCmd = &cobra.Command{
 				continue
 			}
 
-			parsedTimesheetType, ok := utils.TimesheetTypeInverseLookup[ts.TimesheetType]
+			parsedTimesheetType, ok := types.TimesheetTypeInverseLookup[ts.TimesheetType]
 
 			if !ok {
 				continue

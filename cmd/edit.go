@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Salvadego/IntraCLI/config"
+	"github.com/Salvadego/IntraCLI/types"
 	"github.com/Salvadego/IntraCLI/utils"
 	"github.com/Salvadego/mantis/mantis"
 
@@ -140,7 +141,7 @@ var editCmd = &cobra.Command{
 			// Timesheet type
 			tsType := ts.TimesheetType
 			if editTimesheetType != "" {
-				if key, ok := utils.TimesheetTypeLookup[editTimesheetType]; ok {
+				if key, ok := types.TimesheetTypeLookup[editTimesheetType]; ok {
 					tsType = key
 				} else {
 					log.Fatalf("Unknown timesheet type '%s'", editTimesheetType)

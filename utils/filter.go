@@ -11,11 +11,6 @@ import (
 	"github.com/Salvadego/mantis/mantis"
 )
 
-var (
-	TimesheetTypeLookup        = map[string]string{}
-	TimesheetTypeInverseLookup = map[string]string{}
-)
-
 func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetFilter, profile config.Profile) []mantis.TimesheetsResponse {
 	var filtered []mantis.TimesheetsResponse
 
@@ -122,7 +117,7 @@ func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetF
 		}
 
 		if filter.Type != "" {
-			typeValue, exists := TimesheetTypeInverseLookup[filter.Type]
+			typeValue, exists := types.TimesheetTypeLookup[filter.Type]
 			if !exists || typeValue != ts.TimesheetType {
 				match = false
 			}
