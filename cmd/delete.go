@@ -17,6 +17,7 @@ func init() {
 	deleteTimesheetCmd.Flags().StringVar(&filterName, "filter", "", "Filter to use for deleting timesheets")
 
 	deleteTimesheetCmd.RegisterFlagCompletionFunc("id", timesheetIdCompletionFunc)
+	deleteTimesheetCmd.RegisterFlagCompletionFunc("filter", filterNameCompletionFunc)
 
 	rootCmd.AddCommand(deleteTimesheetCmd)
 }
