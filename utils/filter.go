@@ -75,14 +75,13 @@ func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetF
 		if filter.Quantity != "" {
 			// Example format of filter.Quantity: ">10", "<=20", ">=100", "=50"
 
-			parts := strings.SplitN(filter.Quantity, " ", 2)
-			if len(parts) != 2 {
-				continue // Skip invalid format
+			re := regexp.MustCompile(`^(>=|<=|>|<|=)(\d+(\.\d+)?)$`)
+			matches := re.FindStringSubmatch(filter.Quantity)
+			if len(matches) == 0 {
+				continue
 			}
-
-			// Operator and value
-			operator := parts[0]
-			quantityStr := parts[1]
+			operator := matches[1]
+			quantityStr := matches[2]
 
 			quantity, err := strconv.ParseFloat(quantityStr, 64)
 			if err != nil {
