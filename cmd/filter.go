@@ -31,12 +31,11 @@ func init() {
 	filterTimesheetsCmd.Flags().StringVar(&filterProject, "project", "", "Filter by project (substring match)")
 	filterTimesheetsCmd.Flags().BoolVar(&hasTicketOnly, "has-ticket-only", false, "Only timesheets with a ticket")
 	filterTimesheetsCmd.Flags().StringVar(&filterType, "type", "", "Filter by timesheet type")
-	filterTimesheetsCmd.Flags().StringVar(&filterDescription, "description", "", "Filter by description (substring match)")
+	filterTimesheetsCmd.Flags().StringVar(&filterDescription, "description", "", "Filter by description (regex)")
 	filterTimesheetsCmd.Flags().StringVar(&filterQuantity, "quantity", "", "Filter by quantity [>=|<=|=|<|>]<number>")
 
 	filterTimesheetsCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
-	filterTimesheetsCmd.RegisterFlagCompletionFunc("project-alias", projectAliasCompletionFunc)
-	filterTimesheetsCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
+	filterTimesheetsCmd.RegisterFlagCompletionFunc("project", projectAliasCompletionFunc)
 
 	rootCmd.AddCommand(filterTimesheetsCmd)
 }
