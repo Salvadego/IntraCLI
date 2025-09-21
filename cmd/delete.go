@@ -27,7 +27,7 @@ var deleteTimesheetCmd = &cobra.Command{
 	Short: "Delete a specific timesheet entry",
 	Long:  `Deletes a timesheet entry from Mantis using its unique ID. Use 'list-timesheets' to find IDs.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if timesheetID != 0 && filterName == "" {
+		if timesheetID == 0 && filterName == "" {
 			log.Fatal("Error: No timesheet ID or filter provided. Please provide a valid ID using --id (-i) or --filter.")
 		}
 
