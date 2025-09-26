@@ -14,12 +14,10 @@ func init() {
 	rootCmd.AddCommand(undoCmd)
 }
 
-// missing: delete created timesheets
 var undoCmd = &cobra.Command{
 	Use:   "undo-timesheet",
 	Short: "Restore the last deleted/recreated timesheets",
 	Run: func(cmd *cobra.Command, args []string) {
-		// maybe create another file for the ones I need to delete
 		toDeleteCacheFile := "to_delete_timesheets.json"
 		var cached []mantis.TimesheetsResponse
 

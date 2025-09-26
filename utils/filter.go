@@ -22,7 +22,6 @@ func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetF
 			continue
 		}
 
-		// Date range
 		if filter.FromDate != "" {
 			from, _ := time.Parse("2006-01-02", filter.FromDate)
 			if parsedDate.Before(from) {
@@ -36,16 +35,14 @@ func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetF
 			}
 		}
 
-		// Ticket
 		if filter.Ticket != "" && !strings.Contains(ts.TicketNo, filter.Ticket) {
 			match = false
 		}
 
-		// Project
 		if filter.Project != "" {
 			aliasInfo, ok := profile.ProjectAliases[filter.Project]
 			if !ok {
-				// alias inexistente -> não bate nada
+
 				match = false
 			} else {
 				if int(ts.SalesOrder) != aliasInfo.SalesOrder ||
@@ -55,12 +52,10 @@ func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetF
 			}
 		}
 
-		// Only with ticket
 		if filter.HasTicketOnly && ts.TicketNo == "" {
 			match = false
 		}
 
-		// Description should be a regex
 		if filter.Description != "" {
 			re, err := regexp.Compile(filter.Description)
 			if err != nil {
@@ -71,9 +66,7 @@ func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetF
 			}
 		}
 
-		// Quantity Filtering (Comparison)
 		if filter.Quantity != "" {
-			// Example format of filter.Quantity: ">10", "<=20", ">=100", "=50"
 
 			re := regexp.MustCompile(`^(>=|<=|>|<|=)(\d+(\.\d+)?)$`)
 			matches := re.FindStringSubmatch(filter.Quantity)
@@ -85,10 +78,9 @@ func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetF
 
 			quantity, err := strconv.ParseFloat(quantityStr, 64)
 			if err != nil {
-				continue // Skip if not a valid number
+				continue
 			}
 
-			// Apply the comparison
 			switch operator {
 			case ">":
 				if ts.Quantity <= quantity {
@@ -111,7 +103,7 @@ func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetF
 					match = false
 				}
 			default:
-				continue // Skip if operator is not valid
+				continue
 			}
 		}
 

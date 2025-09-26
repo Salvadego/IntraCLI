@@ -3,11 +3,14 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/Salvadego/IntraCLI/cache"
 	"github.com/Salvadego/IntraCLI/types"
 	"github.com/Salvadego/IntraCLI/utils"
+	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/spf13/cobra"
 )
 
@@ -34,18 +37,20 @@ var listTimesheetsCmd = &cobra.Command{
 	period (based on Mantis's 26th of month logic) for the user in the default
 	profile.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
 		timesheets, err := mantisClient.Timesheet.GetTimesheets(
 			mantisCtx,
 			currentUserID,
 			calYear,
-			time.Month(calMonth))
+			time.Month(calMonth),
+		)
+		if err != nil {
+			log.Fatalf("Error getting timesheets: %v", err)
+		}
 
 		currentProfileName := appConfig.DefaultProfile
 		if profileName != "" {
 			currentProfileName = profileName
 		}
-
 		profile, profileExists := appConfig.Profiles[currentProfileName]
 		if !profileExists {
 			log.Fatalf("Profile '%s' not found", currentProfileName)
@@ -59,13 +64,8 @@ var listTimesheetsCmd = &cobra.Command{
 			timesheets = utils.ApplyFilter(timesheets, f, profile)
 		}
 
-		if err != nil {
-			log.Fatalf("Error getting timesheets: %v", err)
-		}
-
 		filename := fmt.Sprintf(cache.TimesheetsCacheFileName, currentUserID)
-		err = cache.WriteToCache(filename, timesheets)
-		if err != nil {
+		if err := cache.WriteToCache(filename, timesheets); err != nil {
 			log.Printf("Warning: Failed to write timesheets to cache: %v", err)
 		}
 
@@ -75,53 +75,47 @@ var listTimesheetsCmd = &cobra.Command{
 		}
 
 		fmt.Printf(
-			"Timesheets for user %s (%d) for the current period:\n",
+			"Timesheets for user %s (%d) for the current period:\n\n",
 			currentUser.FullName,
 			currentUserID,
 		)
 
-		printBar()
-		fmt.Printf(
-			"%-10s %-14s %-15s %-15s %-40.40s %-10s\n",
-			"ID", "TimesheetType",
-			"Date",
-			"Hours",
-			"Description",
-			"Ticket",
+		table := tablewriter.NewTable(os.Stdout,
+			tablewriter.WithConfig(tablewriter.Config{
+				Row: tw.CellConfig{
+					Formatting: tw.CellFormatting{AutoWrap: tw.WrapNormal},
+					Alignment:  tw.CellAlignment{Global: tw.AlignLeft},
+					ColMaxWidths: tw.CellWidth{
+						Global: 40,
+					},
+				},
+			}),
 		)
-		printBar()
+
+		table.Header("ID", "TimesheetType", "Date", "Hours", "Description", "Ticket")
 
 		for _, ts := range timesheets {
 			parsedDate, err := time.Parse("2006-01-02T15:04:05Z", ts.DateDoc)
-
 			if err != nil {
 				continue
 			}
-
 			parsedTimesheetType, ok := types.TimesheetTypeInverseLookup[ts.TimesheetType]
-
 			if !ok {
 				continue
 			}
-
 			mes := meses[int(parsedDate.Month())-1]
 			formatted := fmt.Sprintf("%d de %s %d", parsedDate.Day(), mes, parsedDate.Year())
 
-			fmt.Printf(
-				"%-10d %-14s %-15s %-15.2f %-40.40s %-10s\n",
-				ts.TimesheetID,
+			table.Append(
+				fmt.Sprintf("%d", ts.TimesheetID),
 				parsedTimesheetType,
 				formatted,
-				ts.Quantity,
+				fmt.Sprintf("%.2f", ts.Quantity),
 				ts.Description,
 				ts.TicketNo,
 			)
-
 		}
-		printBar()
-	},
-}
 
-func printBar() {
-	fmt.Println(`--------------------------------------------------------------------------------------------------------------`)
+		table.Render()
+	},
 }
