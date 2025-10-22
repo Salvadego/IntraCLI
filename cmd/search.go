@@ -56,6 +56,9 @@ var searchEmployeeCmd = &cobra.Command{
 
 			newProfile := config.Profile{
 				EmployeeName:   employee.FullName,
+				DailyJourney:   employee.DailyJourney,
+				Email:          employee.Email,
+				EmployeeCode:   employee.EmployeeCode,
 				UserID:         employee.UserID,
 				ProjectAliases: map[string]config.ProjectAlias{},
 			}
@@ -75,5 +78,6 @@ var searchEmployeeCmd = &cobra.Command{
 		fmt.Printf("  Employee Code: %d\n", employee.EmployeeCode)
 		fmt.Printf("  User ID: %d\n", employee.UserID)
 		fmt.Printf("  Email: %s\n", employee.Email)
+		fmt.Printf("  Daily Journey: %.2f\n", employee.DailyJourney)
 	},
 }
