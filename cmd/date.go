@@ -3,11 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/IntraCLI/types"
 	"github.com/Salvadego/IntraCLI/utils"
+	"github.com/Salvadego/mantis/mantis"
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/renderer"
@@ -47,12 +49,26 @@ var dateSummaryCmd = &cobra.Command{
 			calYear = now.Year()
 		}
 
-		timesheets, err := mantisClient.Timesheet.GetTimesheets(
-			mantisCtx,
-			profile.UserID,
-			calYear,
-			time.Month(calMonth),
-		)
+		var timesheets []mantis.TimesheetsResponse
+		if calMonth == 0 {
+			var all []mantis.TimesheetsResponse
+			for m := time.January; m <= time.December; m++ {
+				tss, err := mantisClient.Timesheet.GetTimesheets(mantisCtx, profile.UserID, calYear, m)
+				if err != nil {
+					fmt.Printf("Error fetching month %d: %v\n", m, err)
+					continue
+				}
+				all = append(all, tss...)
+			}
+			timesheets = all
+		} else {
+			timesheets, err = mantisClient.Timesheet.GetTimesheets(mantisCtx, profile.UserID, calYear, time.Month(calMonth))
+			if err != nil {
+				fmt.Printf("Error fetching timesheets: %v\n", err)
+				return
+			}
+		}
+
 		if err != nil {
 			fmt.Printf("Error fetching timesheets: %v\n", err)
 			return
@@ -117,14 +133,17 @@ var dateSummaryCmd = &cobra.Command{
 		table.Render()
 
 		fmt.Println("\nWEEKLY TOTALS:")
-		for w, h := range weeklyTotals {
-			fmt.Printf("  %s: %.2f hours\n", w, h)
+		weeks := make([]string, 0, len(weeklyTotals))
+		for w := range weeklyTotals {
+			weeks = append(weeks, w)
+		}
+		sort.Strings(weeks)
+
+		for _, w := range weeks {
+			fmt.Printf("  %s: %.2f hours\n", w, weeklyTotals[w])
 		}
 
-		fmt.Println("\nMONTHLY TOTALS:")
-		for m, h := range monthlyTotals {
-			fmt.Printf("  %s: %.2f hours\n", m, h)
-		}
+		printMonthlyTotals(monthlyTotals)
 
 		var total, days float64
 		for _, s := range summaries {
@@ -136,4 +155,29 @@ var dateSummaryCmd = &cobra.Command{
 			fmt.Printf("\nAVERAGE DAILY HOURS: %.2f (target %.2f)\n", avg, filter.MinDailyHours)
 		}
 	},
+}
+
+func printMonthlyTotals(monthlyTotals map[string]float64) {
+	type kv struct {
+		key string
+		t   time.Time
+	}
+
+	items := make([]kv, 0, len(monthlyTotals))
+	for k := range monthlyTotals {
+		t, err := time.Parse("2006-January", k)
+		if err != nil {
+			continue
+		}
+		items = append(items, kv{key: k, t: t})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].t.Before(items[j].t)
+	})
+
+	fmt.Println("\nMONTHLY TOTALS:")
+	for _, it := range items {
+		fmt.Printf("  %s: %.2f hours\n", it.key, monthlyTotals[it.key])
+	}
 }
