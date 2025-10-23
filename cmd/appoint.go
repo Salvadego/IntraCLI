@@ -222,10 +222,7 @@ func processEditorFile(profile config.Profile, client *mantis.Client, userID int
 # ticket: 12345
 # type: Normal
 #
-# Blank line separates appointments. Lines starting with '#' are ignored.
-#
 # Save and close the file to create appointments.
-
 `
 
 	err := os.WriteFile(file, []byte(template), 0644)
@@ -233,13 +230,13 @@ func processEditorFile(profile config.Profile, client *mantis.Client, userID int
 		log.Fatalf("Failed to write template to file: %v", err)
 	}
 
-	exec_editor := os.Getenv("EDITOR")
-	if exec_editor == "" {
-		exec_editor = "vim"
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vim"
 	}
 
-	editorArgs := strings.Fields(exec_editor)
-	editorArgs = append(editorArgs, file)
+	editorArgs := append(strings.Fields(editor), file)
+
 	cmd := exec.Command(editorArgs[0], editorArgs[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -248,13 +245,26 @@ func processEditorFile(profile config.Profile, client *mantis.Client, userID int
 		log.Fatalf("Error opening editor: %v", err)
 	}
 
-	content, err := os.ReadFile(file)
+	contentBytes, err := os.ReadFile(file)
 	if err != nil {
 		log.Fatalf("Failed to read edited file: %v", err)
 	}
+	content := string(contentBytes)
 
-	blocks := strings.SplitSeq(string(content), "\n\n")
-	for block := range blocks {
+	re := regexp.MustCompile(`(?m)^description:`)
+	indices := re.FindAllStringIndex(content, -1)
+	if len(indices) == 0 {
+		fmt.Println("No appointments found.")
+		return
+	}
+
+	for i := range indices {
+		start := indices[i][0]
+		end := len(content)
+		if i+1 < len(indices) {
+			end = indices[i+1][0]
+		}
+		block := content[start:end]
 		lines := strings.Split(block, "\n")
 		entryMap := make(map[string]string)
 		for _, line := range lines {
@@ -266,14 +276,10 @@ func processEditorFile(profile config.Profile, client *mantis.Client, userID int
 			if len(parts) != 2 {
 				continue
 			}
-			key := strings.TrimSpace(parts[0])
-			value := strings.TrimSpace(parts[1])
-			entryMap[key] = value
+			entryMap[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 		}
 
-		if entryMap["description"] == "" ||
-			entryMap["hours"] == "" ||
-			entryMap["project-alias"] == "" {
+		if entryMap["description"] == "" || entryMap["hours"] == "" || entryMap["project-alias"] == "" {
 			continue
 		}
 
@@ -296,11 +302,10 @@ func processEditorFile(profile config.Profile, client *mantis.Client, userID int
 
 		entryDate := time.Now().Format("2006-01-02")
 		if entryMap["date"] != "" {
-			_, err := time.Parse("2006-01-02", entryMap["date"])
-			if err != nil {
-				log.Printf("Invalid date, using today instead: %v", err)
-			} else {
+			if _, err := time.Parse("2006-01-02", entryMap["date"]); err == nil {
 				entryDate = entryMap["date"]
+			} else {
+				log.Printf("Invalid date, using today instead: %v", err)
 			}
 		}
 
