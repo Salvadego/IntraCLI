@@ -197,6 +197,20 @@ func filterNameCompletionFunc(cmd *cobra.Command, args []string, toComplete stri
 	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
+func filterDaysNameCompletionFunc(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	cfg, err := config.InitializeConfig()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	var completions []string
+	for name := range cfg.SavedDayFilters {
+		if strings.HasPrefix(name, toComplete) {
+			completions = append(completions, name)
+		}
+	}
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
 func timesheetIdCompletionFunc(
 	cmd *cobra.Command,
 	args []string,

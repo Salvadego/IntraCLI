@@ -10,6 +10,18 @@ type TimesheetFilter struct {
 	Ticket        string `yaml:"ticket"`
 	Project       string `yaml:"project"`
 	HasTicketOnly bool   `yaml:"hasTicketOnly"`
+	Negate        bool   `yaml:"negate"`
+}
+
+type DailyFilter struct {
+	FromDate      string  `yaml:"fromDate"`
+	ToDate        string  `yaml:"toDate"`
+	MinDailyHours float64 `yaml:"minDailyHours"`
+	Negate        bool    `yaml:"negate"`
+	Project       string  `yaml:"project"`
+	User          string  `yaml:"user"`
+	HasTicketOnly bool    `yaml:"hasTicketOnly"`
+	Status        string  `yaml:"status"`
 }
 
 var (

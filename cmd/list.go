@@ -16,8 +16,8 @@ import (
 
 func init() {
 	listTimesheetsCmd.Flags().IntVarP(&calYear, "year", "y", now.Year(), "Year to show")
-	listTimesheetsCmd.Flags().StringVar(&filterName, "filter", "", "Apply a saved filter")
 	listTimesheetsCmd.Flags().IntVarP(&calMonth, "month", "m", int(now.Month()), "Month to show (1-12)")
+	listTimesheetsCmd.Flags().StringVar(&filterName, "filter", "", "Apply a saved filter")
 
 	listTimesheetsCmd.RegisterFlagCompletionFunc("filter", filterNameCompletionFunc)
 	rootCmd.AddCommand(listTimesheetsCmd)

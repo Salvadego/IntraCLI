@@ -11,113 +11,140 @@ import (
 	"github.com/Salvadego/mantis/mantis"
 )
 
+// -------------------------
+// TIMESHEET FILTERING
+// -------------------------
+
 func ApplyFilter(timesheets []mantis.TimesheetsResponse, filter types.TimesheetFilter, profile config.Profile) []mantis.TimesheetsResponse {
 	var filtered []mantis.TimesheetsResponse
-
 	for _, ts := range timesheets {
-		match := true
-
-		parsedDate, err := time.Parse(time.RFC3339, ts.DateDoc)
-		if err != nil {
-			continue
-		}
-
-		if filter.FromDate != "" {
-			from, _ := time.Parse("2006-01-02", filter.FromDate)
-			if parsedDate.Before(from) {
-				match = false
-			}
-		}
-		if filter.ToDate != "" {
-			to, _ := time.Parse("2006-01-02", filter.ToDate)
-			if parsedDate.After(to) {
-				match = false
-			}
-		}
-
-		if filter.Ticket != "" && !strings.Contains(ts.TicketNo, filter.Ticket) {
-			match = false
-		}
-
-		if filter.Project != "" {
-			aliasInfo, ok := profile.ProjectAliases[filter.Project]
-			if !ok {
-
-				match = false
-			} else {
-				if int(ts.SalesOrder) != aliasInfo.SalesOrder ||
-					int(ts.SalesOrderLine) != aliasInfo.SalesOrderLine {
-					match = false
-				}
-			}
-		}
-
-		if filter.HasTicketOnly && ts.TicketNo == "" {
-			match = false
-		}
-
-		if filter.Description != "" {
-			re, err := regexp.Compile(filter.Description)
-			if err != nil {
-				continue
-			}
-			if !re.MatchString(ts.Description) {
-				match = false
-			}
-		}
-
-		if filter.Quantity != "" {
-
-			re := regexp.MustCompile(`^(>=|<=|>|<|=)(\d+(\.\d+)?)$`)
-			matches := re.FindStringSubmatch(filter.Quantity)
-			if len(matches) == 0 {
-				continue
-			}
-			operator := matches[1]
-			quantityStr := matches[2]
-
-			quantity, err := strconv.ParseFloat(quantityStr, 64)
-			if err != nil {
-				continue
-			}
-
-			switch operator {
-			case ">":
-				if ts.Quantity <= quantity {
-					match = false
-				}
-			case "<":
-				if ts.Quantity >= quantity {
-					match = false
-				}
-			case ">=":
-				if ts.Quantity < quantity {
-					match = false
-				}
-			case "<=":
-				if ts.Quantity > quantity {
-					match = false
-				}
-			case "=":
-				if ts.Quantity != quantity {
-					match = false
-				}
-			default:
-				continue
-			}
-		}
-
-		if filter.Type != "" {
-			typeValue, exists := types.TimesheetTypeLookup[filter.Type]
-			if !exists || typeValue != ts.TimesheetType {
-				match = false
-			}
-		}
-
-		if match {
+		if matchTimesheet(ts, filter, profile) {
 			filtered = append(filtered, ts)
 		}
 	}
-
 	return filtered
+}
+
+func matchTimesheet(ts mantis.TimesheetsResponse, filter types.TimesheetFilter, profile config.Profile) bool {
+	parsedDate, err := time.Parse(time.RFC3339, ts.DateDoc)
+
+	if err != nil {
+		return false
+	}
+
+	if !dateInRange(parsedDate, filter.FromDate, filter.ToDate) {
+		return false
+	}
+
+	if filter.Ticket != "" && !strings.Contains(ts.TicketNo, filter.Ticket) {
+		return false
+	}
+
+	if filter.Project != "" && !matchProject(ts, filter.Project, profile) {
+		return false
+	}
+
+	if filter.HasTicketOnly && ts.TicketNo == "" {
+		return false
+	}
+
+	if filter.Description != "" && !matchRegex(ts.Description, filter.Description) {
+		return false
+	}
+
+	if filter.Quantity != "" && !matchQuantity(ts.Quantity, filter.Quantity) {
+		return false
+	}
+
+	if filter.Type != "" {
+		if typeVal, ok := types.TimesheetTypeLookup[filter.Type]; !ok || typeVal != ts.TimesheetType {
+			return false
+		}
+	}
+
+	return true
+}
+
+// -------------------------
+// HELPER FUNCTIONS
+// -------------------------
+
+func dateInRange(date time.Time, fromStr, toStr string) bool {
+	if fromStr != "" {
+		from, _ := time.Parse("2006-01-02", fromStr)
+		if date.Before(from) {
+			return false
+		}
+	}
+	if toStr != "" {
+		to, _ := time.Parse("2006-01-02", toStr)
+		if date.After(to) {
+			return false
+		}
+	}
+	return true
+}
+
+func matchProject(ts mantis.TimesheetsResponse, project string, profile config.Profile) bool {
+	aliasInfo, ok := profile.ProjectAliases[project]
+	if !ok {
+		return false
+	}
+	return int(ts.SalesOrder) == aliasInfo.SalesOrder && int(ts.SalesOrderLine) == aliasInfo.SalesOrderLine
+}
+
+func matchRegex(value, pattern string) bool {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return false
+	}
+	return re.MatchString(value)
+}
+
+func matchQuantity(quantity float64, expr string) bool {
+	re := regexp.MustCompile(`^(>=|<=|>|<|=)(\d+(\.\d+)?)$`)
+	matches := re.FindStringSubmatch(expr)
+	if len(matches) == 0 {
+		return false
+	}
+	num, _ := strconv.ParseFloat(matches[2], 64)
+	switch matches[1] {
+	case ">":
+		return quantity > num
+	case "<":
+		return quantity < num
+	case ">=":
+		return quantity >= num
+	case "<=":
+		return quantity <= num
+	case "=":
+		return quantity == num
+	}
+	return false
+}
+
+// -------------------------
+// DAILY HOURS FILTER
+// -------------------------
+
+func ApplyDailyFilters(timesheets []mantis.TimesheetsResponse, filter types.DailyFilter) []mantis.TimesheetsResponse {
+	var result []mantis.TimesheetsResponse
+
+	for _, ts := range timesheets {
+		t, err := time.Parse(time.RFC3339, ts.DateDoc)
+		if err != nil || !dateInRange(t, filter.FromDate, filter.ToDate) {
+			continue
+		}
+		if filter.Project != "" && !strings.Contains(strings.ToLower(ts.ProjectName), strings.ToLower(filter.Project)) {
+			continue
+		}
+		if filter.User != "" && !strings.Contains(strings.ToLower(ts.ProjectManager), strings.ToLower(filter.User)) {
+			continue
+		}
+		if filter.HasTicketOnly && ts.TicketNo == "" {
+			continue
+		}
+		result = append(result, ts)
+	}
+	return result
 }

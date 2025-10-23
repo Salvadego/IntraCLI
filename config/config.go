@@ -16,11 +16,12 @@ const (
 )
 
 type Config struct {
-	DefaultProfile string                           `yaml:"defaultProfile"`
-	Profiles       map[string]Profile               `yaml:"profiles"`
-	RoleID         int                              `yaml:"roleID"`
-	BaseURL        string                           `yaml:"baseURL"`
-	SavedFilters   map[string]types.TimesheetFilter `yaml:"savedFilters"`
+	DefaultProfile  string                           `yaml:"defaultProfile"`
+	Profiles        map[string]Profile               `yaml:"profiles"`
+	RoleID          int                              `yaml:"roleID"`
+	BaseURL         string                           `yaml:"baseURL"`
+	SavedFilters    map[string]types.TimesheetFilter `yaml:"savedFilters"`
+	SavedDayFilters map[string]types.DailyFilter     `yaml:"savedDayFilters"`
 }
 
 type Profile struct {
