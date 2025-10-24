@@ -38,11 +38,6 @@ var dateSummaryCmd = &cobra.Command{
 			fmt.Printf("Error loading config: %v\n", err)
 			return
 		}
-		profile, ok := cfg.Profiles[cfg.DefaultProfile]
-		if !ok {
-			fmt.Println("Default profile not found in config")
-			return
-		}
 
 		now := time.Now()
 		if calYear == 0 {
@@ -53,7 +48,11 @@ var dateSummaryCmd = &cobra.Command{
 		if calMonth == 0 {
 			var all []mantis.TimesheetsResponse
 			for m := time.January; m <= time.December; m++ {
-				tss, err := mantisClient.Timesheet.GetTimesheets(mantisCtx, profile.UserID, calYear, m)
+				tss, err := mantisClient.Timesheet.GetTimesheets(
+					mantisCtx,
+					currentUserID,
+					calYear,
+					m)
 				if err != nil {
 					fmt.Printf("Error fetching month %d: %v\n", m, err)
 					continue
@@ -62,7 +61,10 @@ var dateSummaryCmd = &cobra.Command{
 			}
 			timesheets = all
 		} else {
-			timesheets, err = mantisClient.Timesheet.GetTimesheets(mantisCtx, profile.UserID, calYear, time.Month(calMonth))
+			timesheets, err = mantisClient.Timesheet.GetTimesheets(mantisCtx,
+				currentUserID,
+				calYear,
+				time.Month(calMonth))
 			if err != nil {
 				fmt.Printf("Error fetching timesheets: %v\n", err)
 				return
