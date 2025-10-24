@@ -62,6 +62,10 @@ func buildSummaries(grouped map[string][]mantis.TimesheetsResponse, journeyHours
 	}
 	sort.Strings(dates)
 
+	if journeyHours == 0 {
+		journeyHours = 8.0
+	}
+
 	var summaries []DailySummary
 	for _, d := range dates {
 		t, _ := time.Parse("2006-01-02", d)

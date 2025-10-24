@@ -170,6 +170,10 @@ func printCalendar(year int, month time.Month, hoursByDate map[string]float64, j
 	fmt.Printf("      %s %d\n", mesesLong[int(month)-1], year)
 	fmt.Println("do se te qu qu se sá")
 
+	if journeyHours == 0 {
+		journeyHours = 8.0
+	}
+
 	today := time.Now()
 	isCurrentMonth := (today.Year() == year && today.Month() == month)
 
