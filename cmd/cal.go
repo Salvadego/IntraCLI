@@ -162,11 +162,11 @@ on a calendar-like view for the current month.`,
 			return
 		}
 
-		printCalendar(currentYear, currentMonth, hoursByDate)
+		printCalendar(currentYear, currentMonth, hoursByDate, profile.DailyJourney)
 	},
 }
 
-func printCalendar(year int, month time.Month, hoursByDate map[string]float64) {
+func printCalendar(year int, month time.Month, hoursByDate map[string]float64, journeyHours float64) {
 	fmt.Printf("      %s %d\n", mesesLong[int(month)-1], year)
 	fmt.Println("do se te qu qu se sá")
 
@@ -191,7 +191,7 @@ func printCalendar(year int, month time.Month, hoursByDate map[string]float64) {
 		key := currentDay.Format("2006-01-02")
 		totalHours := hoursByDate[key]
 
-		if totalHours >= 8.0 {
+		if totalHours >= journeyHours || utils.ApproxEqual(totalHours, journeyHours, 0.001) {
 			fmt.Printf("%s%s%2d%s ", BOLD, GREEN, day, RESET)
 			continue
 		}

@@ -2,10 +2,12 @@ package utils
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/IntraCLI/types"
 	"github.com/Salvadego/mantis/mantis"
 )
@@ -21,7 +23,7 @@ type DailySummary struct {
 	WorkloadBar string
 }
 
-func GenerateSummary(timesheets []mantis.TimesheetsResponse, filter types.DailyFilter) (
+func GenerateSummary(timesheets []mantis.TimesheetsResponse, prof config.Profile, filter types.DailyFilter) (
 	[]DailySummary, map[string]float64, map[string]float64,
 ) {
 	filtered := ApplyDailyFilters(timesheets, filter)
@@ -30,7 +32,7 @@ func GenerateSummary(timesheets []mantis.TimesheetsResponse, filter types.DailyF
 	}
 
 	hoursByDate := groupByDate(filtered)
-	summaries := buildSummaries(hoursByDate, filter.MinDailyHours)
+	summaries := buildSummaries(hoursByDate, prof.DailyJourney, filter.MinDailyHours)
 	weekly, monthly := aggregateTotals(summaries)
 
 	return summaries, weekly, monthly
@@ -53,7 +55,7 @@ func groupByDate(timesheets []mantis.TimesheetsResponse) map[string][]mantis.Tim
 	return result
 }
 
-func buildSummaries(grouped map[string][]mantis.TimesheetsResponse, minHours float64) []DailySummary {
+func buildSummaries(grouped map[string][]mantis.TimesheetsResponse, journeyHours, minHours float64) []DailySummary {
 	var dates []string
 	for d := range grouped {
 		dates = append(dates, d)
@@ -65,7 +67,7 @@ func buildSummaries(grouped map[string][]mantis.TimesheetsResponse, minHours flo
 		t, _ := time.Parse("2006-01-02", d)
 		day := grouped[d]
 		hours, project, user := summarizeDay(day)
-		status := classify(hours, minHours)
+		status := classify(journeyHours, hours, minHours, 0.001)
 		summaries = append(summaries, DailySummary{
 			Date:        d,
 			Hours:       hours,
@@ -103,11 +105,11 @@ func summarizeDay(timesheets []mantis.TimesheetsResponse) (float64, string, stri
 	return total, project, user
 }
 
-func classify(hours, minHours float64) string {
+func classify(journeyHours, hours, minHours, tol float64) string {
 	switch {
-	case hours < minHours:
+	case hours < minHours && !ApproxEqual(hours, minHours, tol):
 		return "MISSING"
-	case hours > 8:
+	case hours > journeyHours && !ApproxEqual(hours, journeyHours, tol):
 		return "OVERTIME"
 	default:
 		return "OK"
@@ -132,4 +134,8 @@ func clamp(v, min, max int) int {
 func weekNumber(t time.Time) int {
 	_, w := t.ISOWeek()
 	return w
+}
+
+func ApproxEqual(a, b, tol float64) bool {
+	return math.Abs(a-b) <= tol
 }

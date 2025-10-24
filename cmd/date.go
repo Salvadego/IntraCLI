@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"sort"
 	"time"
@@ -37,6 +38,15 @@ var dateSummaryCmd = &cobra.Command{
 		if err != nil {
 			fmt.Printf("Error loading config: %v\n", err)
 			return
+		}
+
+		currentProfileName := appConfig.DefaultProfile
+		if profileName != "" {
+			currentProfileName = profileName
+		}
+		profile, profileExists := appConfig.Profiles[currentProfileName]
+		if !profileExists {
+			log.Fatalf("Profile '%s' not found", currentProfileName)
 		}
 
 		now := time.Now()
@@ -86,7 +96,7 @@ var dateSummaryCmd = &cobra.Command{
 			filter = f
 		}
 
-		summaries, weeklyTotals, monthlyTotals := utils.GenerateSummary(timesheets, filter)
+		summaries, weeklyTotals, monthlyTotals := utils.GenerateSummary(timesheets, profile, filter)
 
 		colorCfg := renderer.ColorizedConfig{
 			Header: renderer.Tint{FG: renderer.Colors{color.FgHiWhite, color.Bold}},
