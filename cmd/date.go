@@ -23,8 +23,12 @@ var (
 )
 
 func init() {
-	dateSummaryCmd.Flags().StringVar(&dateSummaryFilterName, "filter", "", "Apply a saved day filter")
-	dateSummaryCmd.RegisterFlagCompletionFunc("filter", filterDaysNameCompletionFunc)
+	dateSummaryCmd.Flags().StringVar(&dateSummaryFilterName, "filter-day", "", "Apply a saved day filter")
+	dateSummaryCmd.Flags().StringVar(&filterName, "filter-timesheet", "", "Apply a saved timesheet filter")
+
+	dateSummaryCmd.RegisterFlagCompletionFunc("filter-day", filterDaysNameCompletionFunc)
+	dateSummaryCmd.RegisterFlagCompletionFunc("filter-timesheet", filterNameCompletionFunc)
+
 	dateSummaryCmd.Flags().IntVarP(&calYear, "year", "y", 0, "Year (default current)")
 	dateSummaryCmd.Flags().IntVarP(&calMonth, "month", "m", 0, "Month (1-12, optional)")
 	rootCmd.AddCommand(dateSummaryCmd)
@@ -86,17 +90,29 @@ var dateSummaryCmd = &cobra.Command{
 			return
 		}
 
-		var filter types.DailyFilter
+		var timesheetFilter types.TimesheetFilter
+		if filterName != "" {
+			f, ok := cfg.SavedFilters[filterName]
+			if !ok {
+				fmt.Printf("Timesheet filter '%s' not found\n", filterName)
+				return
+			}
+			timesheetFilter = f
+		}
+
+		timesheets = utils.ApplyFilter(timesheets, timesheetFilter, profile)
+
+		var dayFilter types.DailyFilter
 		if dateSummaryFilterName != "" {
 			f, ok := cfg.SavedDayFilters[dateSummaryFilterName]
 			if !ok {
 				fmt.Printf("Daily filter '%s' not found\n", dateSummaryFilterName)
 				return
 			}
-			filter = f
+			dayFilter = f
 		}
 
-		summaries, weeklyTotals, monthlyTotals := utils.GenerateSummary(timesheets, profile, filter)
+		summaries, weeklyTotals, monthlyTotals := utils.GenerateSummary(timesheets, profile, dayFilter)
 
 		colorCfg := renderer.ColorizedConfig{
 			Header: renderer.Tint{FG: renderer.Colors{color.FgHiWhite, color.Bold}},
@@ -164,7 +180,7 @@ var dateSummaryCmd = &cobra.Command{
 		}
 		if days > 0 {
 			avg := total / days
-			fmt.Printf("\nAVERAGE DAILY HOURS: %.2f (target %.2f)\n", avg, filter.MinDailyHours)
+			fmt.Printf("\nAVERAGE DAILY HOURS: %.2f (target %.2f)\n", avg, dayFilter.MinDailyHours)
 		}
 	},
 }
