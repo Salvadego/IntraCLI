@@ -14,13 +14,69 @@ import (
 
 // ANSI escape codes:
 const (
-	BOLD   = "\033[1m"
-	GREEN  = "\033[32m"
-	RED    = "\033[31m"
-	YELLOW = "\033[33m"
-	CYAN   = "\033[36m"
-	BLUE   = "\033[34m"
-	RESET  = "\033[0m"
+	BOLD  = "\033[1m"
+	GREEN = "\033[32m"
+	RED   = "\033[31m"
+	CYAN  = "\033[36m"
+	BLUE  = "\033[34m"
+	RESET = "\033[0m"
+)
+
+type RGB struct{ R, G, B uint8 }
+
+func hex2rgb(hex string) RGB {
+	// Accept formats "#rrggbb" or "rrggbb"
+	if len(hex) == 7 && hex[0] == '#' {
+		hex = hex[1:]
+	}
+	var r, g, b uint8
+	_, err := fmt.Sscanf(hex, "%02x%02x%02x", &r, &g, &b)
+	if err != nil {
+		return RGB{0, 0, 0} // fallback
+	}
+	return RGB{r, g, b}
+}
+
+func lerp(a, b RGB, t float64) RGB {
+	return RGB{
+		R: uint8(float64(a.R) + (float64(b.R)-float64(a.R))*t),
+		G: uint8(float64(a.G) + (float64(b.G)-float64(a.G))*t),
+		B: uint8(float64(a.B) + (float64(b.B)-float64(a.B))*t),
+	}
+}
+
+func colorForHours(journeyHours, dayHours float64) string {
+	diff := journeyHours - dayHours
+	if diff < 0 {
+		diff = 0
+	}
+	if diff > journeyHours {
+		diff = journeyHours
+	}
+
+	// Normalize: 1 = red, 0 = green
+	t := diff / journeyHours
+
+	var c RGB
+
+	if t >= 0.5 {
+		// Red → Yellow
+		local := (t - 0.5) / 0.8 // maps 1..0.8 → 1..0
+		c = lerp(Yellow, Red, local)
+	} else {
+		// Yellow → Green
+		local := t / 0.5 // maps 0.5..0 → 1..0
+		c = lerp(Green, Yellow, local)
+	}
+
+	return fmt.Sprintf("\033[38;2;%d;%d;%dm", c.R, c.G, c.B)
+}
+
+// Gruvbox colors
+var (
+	Red    = hex2rgb("#ea6962")
+	Yellow = hex2rgb("#e78a4e")
+	Green  = hex2rgb("#a9b665")
 )
 
 var (
@@ -195,13 +251,9 @@ func printCalendar(year int, month time.Month, hoursByDate map[string]float64, j
 		key := currentDay.Format("2006-01-02")
 		totalHours := hoursByDate[key]
 
-		if totalHours >= journeyHours || utils.ApproxEqual(totalHours, journeyHours, 0.001) {
-			fmt.Printf("%s%s%2d%s ", BOLD, GREEN, day, RESET)
-			continue
-		}
-
 		if totalHours > 0 {
-			fmt.Printf("%s%s%2d%s ", BOLD, YELLOW, day, RESET)
+			color := colorForHours(journeyHours, totalHours)
+			fmt.Printf("%s%s%2d%s ", BOLD, color, day, RESET)
 			continue
 		}
 
