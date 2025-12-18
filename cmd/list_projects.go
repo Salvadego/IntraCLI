@@ -73,6 +73,10 @@ var listProjectsCmd = &cobra.Command{
 	Short: "List projects assigned to your profile",
 	Long:  `Retrieves and displays all projects assigned to the employee configured in your profile, and optionally adds a project alias.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if currentUser.EmployeeCode == 0 {
+			log.Fatalf("Employee code not found. Please run 'intracli search-employee' to update your profile.")
+		}
+
 		projects, err := mantisClient.Timesheet.GetProjectTimesheets(mantisCtx, currentUser.EmployeeCode)
 		if err != nil {
 			log.Fatalf("Error getting projects: %v", err)

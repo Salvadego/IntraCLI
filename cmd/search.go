@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Salvadego/IntraCLI/config"
+	"github.com/Salvadego/mantis/mantis"
 
 	"github.com/spf13/cobra"
 )
@@ -17,7 +18,7 @@ var createProfileName string
 
 func init() {
 	searchEmployeeCmd.Flags().StringVarP(&employeeNameSearch, "name", "n", "", "Name or part of the employee's name to search for")
-	searchEmployeeCmd.Flags().StringVarP(&createProfileName, "create-profile", "c", "", "Create a new profile using the found employee (provide a profile name)")
+	searchEmployeeCmd.Flags().StringVarP(&createProfileName, "create-profile", "c", "", "Create or update a profile using the found employee (provide a profile name)")
 
 	rootCmd.AddCommand(searchEmployeeCmd)
 }
@@ -50,8 +51,27 @@ var searchEmployeeCmd = &cobra.Command{
 				log.Fatalf("Error loading config: %v", err)
 			}
 
-			if _, exists := cfg.Profiles[createProfileName]; exists {
-				log.Fatalf("Profile '%s' already exists. Choose a different name.", createProfileName)
+			if existing, exists := cfg.Profiles[createProfileName]; exists {
+
+				log.Printf("Profile '%s' already exists. Choose a different name.\n", createProfileName)
+				log.Println("Do you wish to update it? ")
+				fmt.Print("y/n: ")
+				var choice string
+				_, _ = fmt.Scanln(&choice)
+
+				if choice == "y" {
+					log.Println("Updating profile...")
+					cfg.Profiles[createProfileName] = mergeProfile(existing, employee)
+					err = config.SaveConfig(cfg)
+					if err != nil {
+						log.Fatalf("Error saving config: %v", err)
+					}
+					fmt.Printf("Profile '%s' updated successfully.\n", createProfileName)
+					return
+				} else {
+					log.Println("Aborting...")
+					return
+				}
 			}
 
 			newProfile := config.Profile{
@@ -80,4 +100,20 @@ var searchEmployeeCmd = &cobra.Command{
 		fmt.Printf("  Email: %s\n", employee.Email)
 		fmt.Printf("  Daily Journey: %.2f\n", employee.DailyJourney)
 	},
+}
+
+func mergeProfile(old config.Profile, emp mantis.Employee) config.Profile {
+	p := old
+
+	p.EmployeeName = emp.FullName
+	p.Email = emp.Email
+	p.EmployeeCode = emp.EmployeeCode
+	p.UserID = emp.UserID
+	p.DailyJourney = emp.DailyJourney
+
+	if p.ProjectAliases == nil {
+		p.ProjectAliases = map[string]config.ProjectAlias{}
+	}
+
+	return p
 }
