@@ -119,3 +119,16 @@ func InitializeConfig() (*Config, error) {
 
 	return cfg, nil
 }
+
+func (c *Config) IsInitialized() bool {
+	if c.DefaultProfile == "" {
+		return false
+	}
+	if len(c.Profiles) == 0 {
+		return false
+	}
+	if _, ok := c.Profiles[c.DefaultProfile]; !ok {
+		return false
+	}
+	return true
+}

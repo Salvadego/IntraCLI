@@ -33,6 +33,12 @@ func initCommonMantisClient(cmd *cobra.Command) error {
 		os.Exit(1)
 	}
 
+	if !appConfig.IsInitialized() {
+		if err = config.RunBootstrap(appConfig); err != nil {
+			return err
+		}
+	}
+
 	currentProfileName := appConfig.DefaultProfile
 	if profileName != "" {
 		currentProfileName = profileName
@@ -43,10 +49,13 @@ func initCommonMantisClient(cmd *cobra.Command) error {
 	username := os.Getenv("MANTIS_USERNAME")
 	password := os.Getenv("MANTIS_PASSWORD")
 	if username == "" || password == "" {
-		fmt.Print("Username: ")
-		fmt.Scanln(&username)
-		fmt.Print("Password: ")
-		fmt.Scanln(&password)
+		u, p, err := promptCredentials()
+		if err != nil {
+			return err
+		}
+
+		username = u
+		password = p
 	}
 
 	authConfig := mantis.AuthConfig{
@@ -64,12 +73,16 @@ func initCommonMantisClient(cmd *cobra.Command) error {
 	mantisClient = mantis.NewClient(authConfig, clientConfig)
 	mantisCtx = context.Background()
 
-	err = mantisClient.Auth.Authenticate(mantisCtx)
+	resp, err := mantisClient.Auth.Authenticate(mantisCtx)
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 
 	currentUserID = profile.UserID
+	if currentUserID == 0 {
+		currentUserID, _ = strconv.Atoi(resp.UserId)
+	}
+
 	if cmd.Name() == "roles" {
 		return nil
 	}
@@ -106,6 +119,29 @@ func initCommonMantisClient(cmd *cobra.Command) error {
 	return nil
 }
 
+func promptCredentials() (string, string, error) {
+	var username, pwd string
+
+	fmt.Print("Mantis username: ")
+	fmt.Scanln(&username)
+
+	fmt.Print("Mantis password: ")
+	fmt.Scanln(&pwd)
+
+	fmt.Printf(`
+Set the following environment variables:
+  export MANTIS_USERNAME=%s
+  export MANTIS_PASSWORD=%s
+
+In your shellrc.
+	- bashrc
+	- zshrc
+	etc
+`, username, string(pwd))
+
+	return username, string(pwd), nil
+}
+
 func initTimesheetLookups(timesheetTypes []mantis.ReferenceType) {
 	for _, timesheetType := range timesheetTypes {
 		types.TimesheetTypeLookup[timesheetType.Name] = timesheetType.Value
@@ -114,7 +150,11 @@ func initTimesheetLookups(timesheetTypes []mantis.ReferenceType) {
 }
 
 func handleMissingRoleID(appConfig *config.Config) error {
-	userRoles, err := showUserRoles(appConfig.Profiles[appConfig.DefaultProfile].UserID)
+	userID := appConfig.Profiles[appConfig.DefaultProfile].UserID
+	if userID == 0 {
+		userID = currentUserID
+	}
+	userRoles, err := showUserRoles(userID)
 	if err != nil {
 		return err
 	}
