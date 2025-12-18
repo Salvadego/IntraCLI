@@ -1,5 +1,7 @@
 github.com/Salvadego/mantis v0.0.0-20250917185936-8e7a85fb72df h1:4C/MQbPLzOn9lbhKqywbZL1aSI1TBA2LrXErtBfY4eA=
 github.com/Salvadego/mantis v0.0.0-20250917185936-8e7a85fb72df/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
+github.com/Salvadego/mantis v0.0.0-20251218160218-b61f4083389f h1:D/1GoURHOJ8Jkwrm9Hdn7maUXAHjM8mGlhSd4RttMYQ=
+github.com/Salvadego/mantis v0.0.0-20251218160218-b61f4083389f/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/fatih/color v1.15.0 h1:kOqh6YHBtK8aywxGerMG2Eq3H6Qgoqeo13Bk2Mv/nBs=
 github.com/fatih/color v1.15.0/go.mod h1:0h5ZqXfHYED7Bhv2ZJamyIOUej9KtShiJESRwBDUSsw=
