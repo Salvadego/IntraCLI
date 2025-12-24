@@ -6,13 +6,13 @@ with Mantis APIs, currently optimized for **timesheet management**, but
 designed to expand into other areas of Mantis operations.
 
 ## Table of Contents
-<!--toc:start-->
-- [IntraCLI](#intracli)
-  - [Table of Contents](#table-of-contents)
   - [Overview](#overview)
   - [Features](#features)
   - [Installation](#installation)
-  - [Configuration](#configuration)
+  - [Getting Started (Required Setup)](#getting-started-required-setup)
+    - [Step 1 – Search for an Employee (Required)](#step-1-search-for-an-employee-required)
+    - [Step 2 – Verify Assigned Projects](#step-2-verify-assigned-projects)
+    - [Step 3 – Create Appointments](#step-3-create-appointments)
   - [CLI Usage](#cli-usage)
   - [Shell Completion](#shell-completion)
     - [Enabling Completion](#enabling-completion)
@@ -28,7 +28,7 @@ designed to expand into other areas of Mantis operations.
   - [Examples](#examples)
   - [Caveats](#caveats)
   - [Extending IntraCLI](#extending-intracli)
-<!--toc:end-->
+
 
 ---
 
@@ -74,35 +74,99 @@ intracli --help
 
 ---
 
-## Configuration
+## Getting Started (Required Setup)
 
-Configuration is stored in:
+IntraCLI performs an automatic bootstrap on the first real command you run.
 
-```
-~/.config/intracli/config.yaml
-```
+During this bootstrap, the CLI will:
 
-Minimal config:
+* Create the configuration file if it does not exist
+* Ask for Mantis credentials and base URL
+* Ensure a default profile exists (empty or partially populated)
 
-```yaml
-defaultProfile: "myprofile"
-profiles:
-  myprofile:
-    employeeName: "John Doe"
-    userID: 123
-    email: "john.doe@example.com"
-    employeeCode: 456
-    dailyJourney: 8.0
-    projectAliases: {}
-savedFilters: {}
-savedDayFilters: {}
-roleID: 0
-baseURL: "https://mantis.example.com"
-```
+After bootstrap, the configuration exists — but **you are still not ready to
+create appointments yet**.
 
-Profiles contain employee metadata, daily journey, and project aliases for quick timesheet entry.
+Important: To create appointments, the user must first search for an employee
+and have at least one asigned aliased project.
+
+This step is mandatory and must be done explicitly.
 
 ---
+
+### Step 1 – Search for an Employee (Required)
+
+Before you can:
+
+* Create appointments
+* List assigned projects
+* Add project aliases
+* Edit or delete timesheets
+
+You must associate your profile with a real employee in Mantis.
+
+Run:
+
+```bash
+intracli search-employee --name "John Doe" --create-profile myprofile
+```
+
+This command:
+
+* Searches Mantis for matching employees
+* Retrieves the employee ID and employee code
+* Populates the profile with the required data
+* Enables project discovery and timesheet operations
+
+Without this step:
+
+* list-projects will fail
+* appoint will fail
+* edit-timesheet will fail
+* Any operation requiring projects or employee data will fail
+
+---
+
+### Step 2 – Verify Assigned Projects
+
+Once the employee is associated with the profile, verify that the user has projects assigned in Mantis.
+
+Run:
+
+```bash
+intracli list-projects
+```
+
+If no projects are returned, the user cannot create appointments.
+Projects must be assigned in Mantis first.
+
+```bash
+intracli list-projects -n project-number -a alias_name
+```
+
+---
+
+### Step 3 – Create Appointments
+
+Only after:
+
+* Bootstrap is completed
+* An employee is associated with the profile
+* At least one project is assigned
+
+You can create appointments.
+
+Example:
+
+```bash
+intracli appoint --project-alias PROJX --hours 8 --description "Worked on feature X"
+```
+
+You can see other things using the help command for any command:
+
+```bash
+intracli help appoint
+```
 
 ## CLI Usage
 
@@ -115,6 +179,21 @@ names, filter names, and project aliases.
 ### Enabling Completion
 
 #### Bash
+
+This requires [BASH COMPLETION](https://github.com/scop/bash-completion)
+
+##### Install based on your package manager
+```bash
+sudo apt install bash-completion
+```
+
+##### Use bash-completion, if available, and avoid double-sourcing
+```bash
+[[ $PS1 &&
+  ! ${BASH_COMPLETION_VERSINFO:-} &&
+  -f /usr/share/bash-completion/bash_completion ]] &&
+    . /usr/share/bash-completion/bash_completion
+```
 
 ```bash
 echo "source <(intracli completion bash)" >> ~/.bashrc
