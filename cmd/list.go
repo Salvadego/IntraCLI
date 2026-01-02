@@ -92,7 +92,7 @@ var listTimesheetsCmd = &cobra.Command{
 			}),
 		)
 
-		table.Header("ID", "TimesheetType", "Date", "Hours", "Description", "Ticket")
+		table.Header("ID", "TimesheetType", "Date", "Hours", "Description", "Ticket", "SalesOrder", "SalesOrderLine")
 
 		for _, ts := range timesheets {
 			parsedDate, err := time.Parse("2006-01-02T15:04:05Z", ts.DateDoc)
@@ -113,6 +113,8 @@ var listTimesheetsCmd = &cobra.Command{
 				fmt.Sprintf("%.2f", ts.Quantity),
 				ts.Description,
 				ts.TicketNo,
+				ts.SalesOrder,
+				ts.SalesOrderLine,
 			)
 		}
 

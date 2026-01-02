@@ -41,6 +41,7 @@ func init() {
 	flagSet.BoolVarP(&useEditor, "editor", "e", false, "Open default editor to create appointments")
 
 	appointCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
+	appointCmd.RegisterFlagCompletionFunc("ticket", ticketCompletionFunc)
 	appointCmd.RegisterFlagCompletionFunc("project-alias", projectAliasCompletionFunc)
 
 	rootCmd.AddCommand(appointCmd)
@@ -81,17 +82,19 @@ var appointCmd = &cobra.Command{
 			log.Fatalf("Missing required flags: --hours")
 		}
 
-		if projectAlias == "" {
+		if projectAlias == "" && timesheetType != "T" {
 			log.Fatalf("Missing required flags: --project-alias")
 		}
 
-		projectInfo, ok := profile.ProjectAliases[projectAlias]
-		if !ok {
-			log.Fatalf("Project alias '%s' not found in your default profile.", projectAlias)
-		}
-
-		if projectInfo.NeedsTicket && ticket == "" {
-			log.Fatalf("Error: Project '%s' requires a ticket number. Please provide one using --ticket (-t).", projectAlias)
+		var projectInfo config.ProjectAlias
+		if timesheetType != "T" {
+			projectInfo, ok = profile.ProjectAliases[projectAlias]
+			if !ok {
+				log.Fatalf("Project alias '%s' not found in your default profile.", projectAlias)
+			}
+			if projectInfo.NeedsTicket && ticket == "" {
+				log.Fatalf("Error: Project '%s' requires a ticket number. Please provide one using --ticket (-t).", projectAlias)
+			}
 		}
 
 		parsedHours, err := parseDurationString(hoursString)
