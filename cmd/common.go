@@ -376,7 +376,7 @@ func contracsCompletion(
 		if err != nil {
 			log.Fatalf("Error getting contracts: %v", err)
 		}
-		err = cache.WriteToCache(cache.EmployeeListCacheFileName, contracts)
+		err = cache.WriteToCache(cache.ContractsListCacheFileName, contracts)
 		if err != nil {
 			log.Fatalf("Failed to write to cache: %v", err)
 		}
