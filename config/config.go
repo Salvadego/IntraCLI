@@ -27,6 +27,8 @@ type Config struct {
 type Profile struct {
 	EmployeeName   string                  `yaml:"employeeName"`
 	UserID         int                     `yaml:"userID"`
+	SUserID        string                  `yaml:"SuserID"`
+	LType          string                  `yaml:"Ltype"`
 	Email          string                  `yaml:"email"`
 	EmployeeCode   int                     `yaml:"employeeCode"`
 	DailyJourney   float64                 `yaml:"dailyJourney"`

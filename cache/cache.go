@@ -3,15 +3,16 @@ package cache
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 )
 
 const (
-	cacheDirName            = ".cache"
-	appName                 = "intracli"
-	TimesheetsCacheFileName = "timesheets%d.json"
+	cacheDirName               = ".cache"
+	appName                    = "intracli"
+	TimesheetsCacheFileName    = "timesheets%d.json"
+	EmployeeListCacheFileName  = "employeesList.json"
+	ContractsListCacheFileName = "contractsList.json"
 )
 
 func GetCacheFilePath(cacheFileName string) (string, error) {
@@ -44,11 +45,11 @@ func WriteToCache[T any](cacheFileName string, data []T) error {
 
 	marshalData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal timesheets to JSON: %w", err)
+		return fmt.Errorf("failed to marshal list to JSON: %w", err)
 	}
 
 	if err := os.WriteFile(cacheFilePath, marshalData, 0644); err != nil {
-		return fmt.Errorf("failed to write timesheets to cache file: %w", err)
+		return fmt.Errorf("failed to write list to cache file: %w", err)
 	}
 	return nil
 }
@@ -62,15 +63,14 @@ func ReadFromCache[T any](cacheFileName string) ([]T, error) {
 	data, err := os.ReadFile(cacheFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Printf("Cache file not found at %s. Returning empty timesheets.\n", cacheFilePath)
-			return []T{}, nil
+			return []T{}, fmt.Errorf("Cache file not found at %s. Returning empty list.\n", cacheFilePath)
 		}
-		return nil, fmt.Errorf("failed to read timesheets from cache file: %w", err)
+		return nil, fmt.Errorf("failed to read list from cache file: %w", err)
 	}
 
 	var unData []T
 	if err := json.Unmarshal(data, &unData); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal timesheets from JSON: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal  from JSON: %w", err)
 	}
 	return unData, nil
 }

@@ -361,3 +361,40 @@ func ticketCompletionFunc(
 	return completions, cobra.ShellCompDirectiveNoFileComp
 
 }
+
+func contracsCompletion(
+	cmd *cobra.Command,
+	args []string,
+	toComplete string,
+) ([]string, cobra.ShellCompDirective) {
+
+	ctx := context.Background()
+
+	contracts, err := cache.ReadFromCache[mantis.LtContract](cache.ContractsListCacheFileName)
+	if err != nil {
+		contracts, err = mantisClient.Dashboard.GetReportContracts(ctx)
+		if err != nil {
+			log.Fatalf("Error getting contracts: %v", err)
+		}
+		err = cache.WriteToCache(cache.EmployeeListCacheFileName, contracts)
+		if err != nil {
+			log.Fatalf("Failed to write to cache: %v", err)
+		}
+	}
+
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	out := make([]string, 0, len(contracts))
+	for _, c := range contracts {
+		if strings.HasPrefix(c.ContractID, toComplete) {
+			out = append(
+				out,
+				fmt.Sprintf("%s\t%s", c.ContractID, c.Title),
+			)
+		}
+	}
+
+	return out, cobra.ShellCompDirectiveNoFileComp
+}

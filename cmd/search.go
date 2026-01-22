@@ -5,16 +5,17 @@ import (
 	"log"
 	"strings"
 
+	"github.com/Salvadego/IntraCLI/cache"
 	"github.com/Salvadego/IntraCLI/config"
 	"github.com/Salvadego/mantis/mantis"
 
 	"github.com/spf13/cobra"
 )
 
-const allEmployeesRoleID = 1000333
-
 var employeeNameSearch string
 var createProfileName string
+
+const supervisorID int = 1031856
 
 func init() {
 	searchEmployeeCmd.Flags().StringVarP(&employeeNameSearch, "name", "n", "", "Name or part of the employee's name to search for")
@@ -45,6 +46,26 @@ var searchEmployeeCmd = &cobra.Command{
 			return
 		}
 
+		employees, err := cache.ReadFromCache[mantis.S_Employee](cache.EmployeeListCacheFileName)
+		if err != nil {
+			employees, err = mantisClient.Employee.GetEmployeeList(mantisCtx, supervisorID)
+			if err != nil {
+				log.Fatalf("Error getting employees: %v", err)
+			}
+			err = cache.WriteToCache(cache.EmployeeListCacheFileName, employees)
+			if err != nil {
+				log.Fatalf("Failed to write to cache: %v", err)
+			}
+		}
+
+		var S_Employee mantis.S_Employee
+		for _, emp := range employees {
+			if int(emp.AdUserID) == employee.UserID {
+				S_Employee = emp
+				break
+			}
+		}
+
 		if createProfileName != "" {
 			cfg, err := config.InitializeConfig()
 			if err != nil {
@@ -61,7 +82,7 @@ var searchEmployeeCmd = &cobra.Command{
 
 				if choice == "y" {
 					log.Println("Updating profile...")
-					cfg.Profiles[createProfileName] = mergeProfile(existing, employee)
+					cfg.Profiles[createProfileName] = mergeProfile(existing, employee, S_Employee)
 					err = config.SaveConfig(cfg)
 					if err != nil {
 						log.Fatalf("Error saving config: %v", err)
@@ -80,6 +101,8 @@ var searchEmployeeCmd = &cobra.Command{
 				Email:          employee.Email,
 				EmployeeCode:   employee.EmployeeCode,
 				UserID:         employee.UserID,
+				SUserID:        S_Employee.SUserID,
+				LType:          S_Employee.TipoLider,
 				ProjectAliases: map[string]config.ProjectAlias{},
 			}
 
@@ -97,12 +120,13 @@ var searchEmployeeCmd = &cobra.Command{
 		fmt.Printf("  Full Name: %s\n", employee.FullName)
 		fmt.Printf("  Employee Code: %d\n", employee.EmployeeCode)
 		fmt.Printf("  User ID: %d\n", employee.UserID)
+		fmt.Printf("  SUser ID: %s\n", S_Employee.SUserID)
 		fmt.Printf("  Email: %s\n", employee.Email)
 		fmt.Printf("  Daily Journey: %.2f\n", employee.DailyJourney)
 	},
 }
 
-func mergeProfile(old config.Profile, emp mantis.Employee) config.Profile {
+func mergeProfile(old config.Profile, emp mantis.Employee, sEmp mantis.S_Employee) config.Profile {
 	p := old
 
 	p.EmployeeName = emp.FullName
@@ -110,6 +134,8 @@ func mergeProfile(old config.Profile, emp mantis.Employee) config.Profile {
 	p.EmployeeCode = emp.EmployeeCode
 	p.UserID = emp.UserID
 	p.DailyJourney = emp.DailyJourney
+	p.SUserID = sEmp.SUserID
+	p.LType = sEmp.TipoLider
 
 	if p.ProjectAliases == nil {
 		p.ProjectAliases = map[string]config.ProjectAlias{}
