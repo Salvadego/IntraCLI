@@ -11,11 +11,12 @@ import (
 type CleanFile string
 
 const (
-	Timesheet CleanFile = "timesheets"
-	Employee  CleanFile = "employees"
-	Contracts CleanFile = "contracts"
-	Tickets   CleanFile = "tickets"
-	All       CleanFile = "all"
+	Timesheet   CleanFile = "timesheets"
+	Employee    CleanFile = "employees"
+	Contracts   CleanFile = "contracts"
+	Tickets     CleanFile = "tickets"
+	NonBusiness CleanFile = "nonBusiness"
+	All         CleanFile = "all"
 )
 
 var cleanFileValues = []string{
@@ -23,6 +24,7 @@ var cleanFileValues = []string{
 	string(Employee),
 	string(Contracts),
 	string(Tickets),
+	string(NonBusiness),
 	string(All),
 }
 
@@ -33,7 +35,25 @@ func init() {
 func deleteByCleanType(f CleanFile) error {
 	switch f {
 	case Timesheet:
-		files, err := cache.ListCacheFiles("timesheets")
+		files, err := cache.ListCacheFiles("timesheets_")
+		if err != nil {
+			return err
+		}
+
+		for _, file := range files {
+			file, err := cache.GetCacheFilePath(file)
+			if err != nil {
+				return err
+			}
+
+			err = os.Remove(file)
+			if err != nil {
+				return err
+			}
+		}
+
+	case NonBusiness:
+		files, err := cache.ListCacheFiles("nonbusiness_")
 		if err != nil {
 			return err
 		}
