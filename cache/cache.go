@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
 	cacheDirName               = ".cache"
 	appName                    = "intracli"
 	TimesheetsCacheFileName    = "timesheets%d.json"
+	TicketsCacheFileName       = "tickets_%s.json"
 	EmployeeListCacheFileName  = "employeesList.json"
 	ContractsListCacheFileName = "contractsList.json"
 )
@@ -73,4 +75,39 @@ func ReadFromCache[T any](cacheFileName string) ([]T, error) {
 		return nil, fmt.Errorf("failed to unmarshal  from JSON: %w", err)
 	}
 	return unData, nil
+}
+
+func GetCacheDirPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("could not get user home directory: %w", err)
+	}
+	return filepath.Join(homeDir, cacheDirName, appName), nil
+}
+
+func ListCacheFiles(prefix string) ([]string, error) {
+	cacheDirPath, err := GetCacheDirPath()
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(cacheDirPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("failed to read cache dir: %w", err)
+	}
+
+	var files []string
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if prefix == "" || strings.HasPrefix(e.Name(), prefix) {
+			files = append(files, e.Name())
+		}
+	}
+
+	return files, nil
 }

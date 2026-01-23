@@ -323,43 +323,20 @@ func ticketCompletionFunc(
 	args []string,
 	toComplete string,
 ) ([]string, cobra.ShellCompDirective) {
-
-	cfg, err := config.InitializeConfig()
+	tickets, err := loadAndMergeCachedTickets()
 	if err != nil {
-		log.Printf("Error loading config for completion: %v", err)
+		log.Printf("Error loading cached tickets: %v", err)
 		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	currentProfileName := cfg.DefaultProfile
-	if profileName != "" {
-		currentProfileName = profileName
-	}
-
-	profile, ok := cfg.Profiles[currentProfileName]
-	if !ok {
-		log.Printf(
-			"Default profile '%s' not found for completion.",
-			cfg.DefaultProfile,
-		)
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	tickets, err := mantisClient.Tickets.GetTickets(
-		mantisCtx,
-		profile.EmployeeCode,
-	)
-	if err != nil {
-		log.Fatalf("Error getting tickets: %v", err)
 	}
 
 	var completions []string
 	for _, ticket := range tickets {
-		if strings.HasPrefix(ticket.TicketNo, toComplete) {
-			completions = append(completions, fmt.Sprintf("%s\t%s", ticket.TicketNo, ticket.Description))
+		if strings.HasPrefix(ticket.TicketNumber, toComplete) {
+			completions = append(completions, fmt.Sprintf("%s\t[%s]", ticket.TicketNumber, ticket.Description))
 		}
 	}
-	return completions, cobra.ShellCompDirectiveNoFileComp
 
+	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
 func contracsCompletion(

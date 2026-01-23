@@ -3,7 +3,8 @@ module github.com/Salvadego/IntraCLI
 go 1.24.4
 
 require (
-	github.com/Salvadego/mantis v0.0.0-20260122185355-d44a9d4fd78f
+	github.com/Salvadego/mantis v0.0.0-20260123145529-7fd1be20d32b
+	github.com/muesli/reflow v0.3.0
 	github.com/olekukonko/tablewriter v1.1.3
 	github.com/spf13/cobra v1.10.2
 	gopkg.in/yaml.v3 v3.0.1
@@ -13,7 +14,6 @@ require (
 	github.com/clipperhouse/displaywidth v0.7.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.1 // indirect
-	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/olekukonko/cat v0.0.0-20250911104152-50322a0618f6 // indirect
 )
 

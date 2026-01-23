@@ -30,6 +30,8 @@ github.com/Salvadego/mantis v0.0.0-20260122160545-acfee8963796 h1:mDQYF8Wnd2mz7I
 github.com/Salvadego/mantis v0.0.0-20260122160545-acfee8963796/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
 github.com/Salvadego/mantis v0.0.0-20260122185355-d44a9d4fd78f h1:RiYjUjKKdYKtdVTAP3y59fmAqBZCwnr2ZPGYFesJykE=
 github.com/Salvadego/mantis v0.0.0-20260122185355-d44a9d4fd78f/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
+github.com/Salvadego/mantis v0.0.0-20260123145529-7fd1be20d32b h1:VEEJJT4/P56PL9rr0utbEUc7h/K0CtjVgeYJuKFDe1s=
+github.com/Salvadego/mantis v0.0.0-20260123145529-7fd1be20d32b/go.mod h1:3pYaM3HDGIyk69RWHx/AV4+3Y3NqN9LF82GZHxflhRg=
 github.com/clipperhouse/displaywidth v0.7.0 h1:QNv1GYsnLX9QBrcWUtMlogpTXuM5FVnBwKWp1O5NwmE=
 github.com/clipperhouse/displaywidth v0.7.0/go.mod h1:R+kHuzaYWFkTm7xoMmK1lFydbci4X2CicfbGstSGg0o=
 github.com/clipperhouse/stringish v0.1.1 h1:+NSqMOr3GR6k1FdRhhnXrLfztGzuG+VuFDfatpWHKCs=
