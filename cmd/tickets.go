@@ -184,7 +184,7 @@ func handle_reports() error {
 	cacheFile := fmt.Sprintf(cache.TicketsCacheFileName, sig)
 
 	tickets, err := cache.ReadFromCache[mantis.TicketResponse](cacheFile)
-	if err != nil {
+	if err != nil || forceTickets {
 		tickets, err = mantisClient.Dashboard.GetReport(ctx, opts)
 		if err != nil {
 			log.Fatalf("Error getting contracts: %v", err)
