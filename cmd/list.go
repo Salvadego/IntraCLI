@@ -14,6 +14,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var now = time.Now()
+
 func init() {
 	listTimesheetsCmd.Flags().IntVarP(&calYear, "year", "y", now.Year(), "Year to show")
 	listTimesheetsCmd.Flags().IntVarP(&calMonth, "month", "m", int(now.Month()), "Month to show (1-12)")
