@@ -11,7 +11,8 @@ import (
 const (
 	cacheDirName               = ".cache"
 	appName                    = "intracli"
-	TimesheetsCacheFileName    = "timesheets%d.json"
+	TimesheetsCacheFileName    = "timesheets_%d_%04d_%02d.json"
+	NonBusinessCacheFileName   = "nonbusiness_%04d_%02d.json"
 	TicketsCacheFileName       = "tickets_%s.json"
 	EmployeeListCacheFileName  = "employeesList.json"
 	ContractsListCacheFileName = "contractsList.json"

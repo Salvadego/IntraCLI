@@ -24,6 +24,7 @@ type CalConfig struct {
 	Monday   bool
 	NoColor  bool
 	Vertical bool
+	YearView bool
 }
 
 type DayInfo struct {
@@ -365,6 +366,7 @@ func init() {
 	calCmd.Flags().IntVar(&calCfg.Month, "month", int(now.Month()), "Month (1-12)")
 	calCmd.Flags().BoolVarP(&calCfg.Force, "force", "f", false, "Force refresh")
 	calCmd.Flags().StringVarP(&calCfg.FilterName, "filter", "F", "", "Saved filter")
+	calCmd.Flags().BoolVarP(&calCfg.YearView, "year-view", "y", false, "Show whole year")
 
 	calCmd.Flags().IntVarP(&calCfg.Padding, "padding", "j", 1, "Horizontal padding")
 	calCmd.Flags().BoolVar(&calCfg.Monday, "monday", false, "Week starts on Monday")
@@ -379,15 +381,140 @@ var calCmd = &cobra.Command{
 	Use:   "cal",
 	Short: "Show a calendar with your appointments highlighted",
 	Run: func(cmd *cobra.Command, args []string) {
+		currentProfileName := appConfig.DefaultProfile
+		if profileName != "" {
+			currentProfileName = profileName
+		}
+		profile := appConfig.Profiles[currentProfileName]
+		r := NewRenderer(calCfg)
 
-		filename := fmt.Sprintf(cache.TimesheetsCacheFileName, currentUserID)
+		if calCfg.YearView {
+			timesheetsByMonth := map[time.Month][]mantis.TimesheetsResponse{}
+			nonBusinessByMonth := map[time.Month]map[int]mantis.NonBusinessDay{}
+
+			for m := time.January; m <= time.December+1; m++ {
+				realMonth := m
+				realYear := calCfg.Year
+				if m > time.December {
+					realMonth = time.January
+					realYear = calCfg.Year + 1
+				}
+
+				tsFilename := timesheetCacheKey(currentUserID, realYear, realMonth)
+				var ts []mantis.TimesheetsResponse
+				var err error
+
+				if !calCfg.Force {
+					ts, err = cache.ReadFromCache[mantis.TimesheetsResponse](tsFilename)
+					if err != nil {
+						log.Printf("Warning: failed to read timesheet cache (%s): %v", tsFilename, err)
+					}
+				}
+
+				if calCfg.Force || len(ts) == 0 {
+					ts, err = mantisClient.Timesheet.GetTimesheets(
+						mantisCtx,
+						currentUserID,
+						realYear,
+						realMonth,
+					)
+					if err != nil {
+						log.Fatalf("Error getting timesheets: %v", err)
+					}
+					if err := cache.WriteToCache(tsFilename, ts); err != nil {
+						log.Printf("Warning: failed to write timesheet cache (%s): %v", tsFilename, err)
+					}
+				}
+
+				if calCfg.FilterName != "" {
+					f := appConfig.SavedFilters[calCfg.FilterName]
+					ts = utils.ApplyFilter(ts, f, profile)
+				}
+
+				timesheetsByMonth[realMonth] = ts
+
+				nbFilename := nonBusinessCacheKey(realYear, realMonth)
+				var nbResp []mantis.NonBusinessDay
+				if !calCfg.Force {
+					nbResp, err = cache.ReadFromCache[mantis.NonBusinessDay](nbFilename)
+					if err != nil {
+						log.Printf("Warning: failed to read non-business cache (%s): %v", nbFilename, err)
+						nbResp = nil
+					}
+				}
+
+				if calCfg.Force || len(nbResp) == 0 {
+					fetched, err := mantisClient.Calendar.GetNonBusinessDays(mantisCtx, realYear, realMonth)
+					if err != nil {
+						log.Printf("Warning: failed to get non-business days for %04d-%02d: %v", realYear, realMonth, err)
+						nbResp = nil
+					} else {
+						nbResp = fetched
+						if err := cache.WriteToCache(nbFilename, nbResp); err != nil {
+							log.Printf("Warning: failed to write non-business cache (%s): %v", nbFilename, err)
+						}
+					}
+				}
+
+				nbMap := map[int]mantis.NonBusinessDay{}
+				for _, d := range nbResp {
+					nbMap[d.Date.Day()] = d
+				}
+				nonBusinessByMonth[realMonth] = nbMap
+			}
+
+			allDays := map[time.Month][]DayInfo{}
+			hoursByDateByMonth := map[time.Month]map[string]float64{}
+			dateAppointmentsByMonth := map[time.Month]map[string][]mantis.TimesheetsResponse{}
+
+			for m := time.January; m <= time.December+1; m++ {
+				hoursByDateByMonth[m] = map[string]float64{}
+				dateAppointmentsByMonth[m] = map[string][]mantis.TimesheetsResponse{}
+			}
+
+			for m := time.January; m <= time.December+1; m++ {
+				for _, ts := range timesheetsByMonth[m] {
+					parsedDate, err := time.Parse(time.RFC3339, ts.DateDoc)
+					if err != nil {
+						continue
+					}
+
+					key := parsedDate.Format("2006-01-02")
+					hoursByDateByMonth[parsedDate.Month()][key] += ts.Quantity
+					dateAppointmentsByMonth[parsedDate.Month()][key] =
+						append(dateAppointmentsByMonth[parsedDate.Month()][key], ts)
+				}
+			}
+
+			for m := time.January; m <= time.December; m++ {
+				allDays[m] = buildDays(
+					calCfg.Year,
+					m,
+					hoursByDateByMonth[m],
+					dateAppointmentsByMonth[m],
+					nonBusinessByMonth[m],
+					time.Now(),
+				)
+			}
+
+			r.RenderYear(calCfg.Year, allDays, profile.DailyJourney)
+			return
+		}
+
+		filename := timesheetCacheKey(
+			currentUserID,
+			calCfg.Year,
+			time.Month(calCfg.Month),
+		)
+
 		var err error
 		var timesheets []mantis.TimesheetsResponse
 
 		if !calCfg.Force {
 			timesheets, err = cache.ReadFromCache[mantis.TimesheetsResponse](filename)
 			if err != nil {
-				log.Printf("Warning: failed to read from cache: %v", err)
+				log.Printf("Warning: failed to read timesheet cache (%s): %v", filename, err)
+				timesheets = nil
 			}
 		}
 
@@ -401,30 +528,41 @@ var calCmd = &cobra.Command{
 			if err != nil {
 				log.Fatalf("Error getting timesheets: %v", err)
 			}
-
-			err = cache.WriteToCache(filename, timesheets)
-			if err != nil {
+			if err := cache.WriteToCache(filename, timesheets); err != nil {
 				log.Printf("Warning: Failed to write to cache: %v", err)
 			}
 		}
-
-		currentProfileName := appConfig.DefaultProfile
-		if profileName != "" {
-			currentProfileName = profileName
-		}
-
-		profile := appConfig.Profiles[currentProfileName]
 
 		if calCfg.FilterName != "" {
 			f := appConfig.SavedFilters[calCfg.FilterName]
 			timesheets = utils.ApplyFilter(timesheets, f, profile)
 		}
 
-		nonBusinessResp, _ := mantisClient.Calendar.GetNonBusinessDays(
-			mantisCtx,
-			calCfg.Year,
-			time.Month(calCfg.Month),
-		)
+		nbFilename := nonBusinessCacheKey(calCfg.Year, time.Month(calCfg.Month))
+		var nonBusinessResp []mantis.NonBusinessDay
+		if !calCfg.Force {
+			nonBusinessResp, err = cache.ReadFromCache[mantis.NonBusinessDay](nbFilename)
+			if err != nil {
+				log.Printf("Warning: failed to read non-business cache (%s): %v", nbFilename, err)
+				nonBusinessResp = nil
+			}
+		}
+		if calCfg.Force || len(nonBusinessResp) == 0 {
+			nb, err := mantisClient.Calendar.GetNonBusinessDays(
+				mantisCtx,
+				calCfg.Year,
+				time.Month(calCfg.Month),
+			)
+			if err != nil {
+				log.Printf("Warning: failed to get non-business days: %v", err)
+				nonBusinessResp = nil
+			} else {
+				nonBusinessResp = nb
+				if err := cache.WriteToCache(nbFilename, nonBusinessResp); err != nil {
+					log.Printf("Warning: failed to write non-business cache (%s): %v", nbFilename, err)
+				}
+			}
+		}
 
 		nonBusiness := map[int]mantis.NonBusinessDay{}
 		for _, d := range nonBusinessResp {
@@ -440,9 +578,7 @@ var calCmd = &cobra.Command{
 				continue
 			}
 
-			if parsedDate.Year() == calCfg.Year &&
-				parsedDate.Month() == time.Month(calCfg.Month) {
-
+			if inCalendarMonth(parsedDate, calCfg.Year, time.Month(calCfg.Month)) {
 				key := parsedDate.Format("2006-01-02")
 				hoursByDate[key] += ts.Quantity
 				dateAppointments[key] = append(dateAppointments[key], ts)
@@ -458,11 +594,15 @@ var calCmd = &cobra.Command{
 			time.Now(),
 		)
 
-		r := NewRenderer(calCfg)
-
 		if calCfg.ShowDay != 0 {
 			info := days[calCfg.ShowDay-1]
-			r.RenderDay(calCfg.Year, time.Month(calCfg.Month), calCfg.ShowDay, info, nonBusiness)
+			r.RenderDay(
+				calCfg.Year,
+				time.Month(calCfg.Month),
+				calCfg.ShowDay,
+				info,
+				nonBusiness,
+			)
 			return
 		}
 
@@ -473,4 +613,131 @@ var calCmd = &cobra.Command{
 			profile.DailyJourney,
 		)
 	},
+}
+
+func (r Renderer) RenderYear(
+	year int,
+	allDays map[time.Month][]DayInfo,
+	journeyHours float64,
+) {
+	monthsPerRow := 3
+	cellWidth := 2 + r.Padding
+	monthWidth := cellWidth * 7
+
+	fmt.Printf("%*d\n\n", monthWidth*monthsPerRow/2, year)
+
+	for row := range 4 {
+		start := row*monthsPerRow + 1
+		end := start + monthsPerRow - 1
+
+		for m := start; m <= end; m++ {
+			title := mesesLong[m-1]
+			fmt.Printf("%-*s", monthWidth, center(title, monthWidth))
+		}
+		fmt.Println()
+
+		for m := start; m <= end; m++ {
+			r.printWeekdaysInline(monthWidth)
+		}
+		fmt.Println()
+
+		monthRows := make([][][]string, monthsPerRow)
+		maxRows := 0
+
+		for i, m := 0, start; m <= end; m, i = m+1, i+1 {
+			monthRows[i] = r.buildMonthGrid(allDays[time.Month(m)], journeyHours)
+			if len(monthRows[i]) > maxRows {
+				maxRows = len(monthRows[i])
+			}
+		}
+
+		for rrow := 0; rrow < maxRows; rrow++ {
+			for i := range monthsPerRow {
+				if rrow < len(monthRows[i]) {
+					fmt.Printf("%-*s", monthWidth, strings.Join(monthRows[i][rrow], ""))
+				} else {
+					fmt.Printf("%-*s", monthWidth, "")
+				}
+			}
+			fmt.Println()
+		}
+
+		fmt.Println()
+	}
+}
+
+func (r Renderer) printWeekdaysInline(width int) {
+	labels := []string{"do", "se", "te", "qu", "qu", "se", "sá"}
+	if r.Monday {
+		labels = []string{"se", "te", "qu", "qu", "se", "sá", "do"}
+	}
+
+	cellWidth := 2 + r.Padding
+
+	var b strings.Builder
+	for _, l := range labels {
+		fmt.Fprintf(&b, "%-*s", cellWidth, l)
+	}
+
+	fmt.Printf("%-*s", width, b.String())
+}
+
+func (r Renderer) buildMonthGrid(days []DayInfo, journeyHours float64) [][]string {
+	if len(days) == 0 {
+		return nil
+	}
+
+	cellWidth := 2 + r.Padding
+	first := days[0].Date
+
+	offset := int(first.Weekday())
+	if r.Monday {
+		offset = (offset + 6) % 7
+	}
+
+	var rows [][]string
+	row := make([]string, 0, 7)
+
+	for i := 0; i < offset; i++ {
+		row = append(row, strings.Repeat(" ", cellWidth))
+	}
+
+	for _, d := range days {
+		if len(row) == 7 {
+			rows = append(rows, row)
+			row = []string{}
+		}
+
+		row = append(row, r.formatDay(d, journeyHours))
+	}
+
+	if len(row) > 0 {
+		for len(row) < 7 {
+			row = append(row, strings.Repeat(" ", cellWidth))
+		}
+		rows = append(rows, row)
+	}
+
+	return rows
+}
+func center(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	left := (width - len(s)) / 2
+	return strings.Repeat(" ", left) + s
+}
+
+func timesheetCacheKey(userID int, year int, month time.Month) string {
+	return fmt.Sprintf(cache.TimesheetsCacheFileName, userID, year, int(month))
+}
+
+func nonBusinessCacheKey(year int, month time.Month) string {
+	return fmt.Sprintf(cache.NonBusinessCacheFileName, year, int(month))
+}
+
+func inCalendarMonth(t time.Time, year int, month time.Month) bool {
+	start := time.Date(year, month, 1, 0, 0, 0, 0, t.Location())
+	end := start.AddDate(0, 1, 0)
+	return !t.Before(start) && t.Before(end)
 }
