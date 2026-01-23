@@ -20,6 +20,9 @@ import (
 
 var (
 	dateSummaryFilterName string
+	filterName            string
+	calYear               int
+	calMonth              int
 )
 
 func init() {
