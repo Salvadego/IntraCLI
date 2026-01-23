@@ -20,6 +20,7 @@ type Config struct {
 	Profiles        map[string]Profile               `yaml:"profiles"`
 	RoleID          int                              `yaml:"roleID"`
 	BaseURL         string                           `yaml:"baseURL"`
+	Editor          string                           `yaml:"editor"`
 	SavedFilters    map[string]types.TimesheetFilter `yaml:"savedFilters"`
 	SavedDayFilters map[string]types.DailyFilter     `yaml:"savedDayFilters"`
 }
