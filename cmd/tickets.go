@@ -8,6 +8,7 @@ import (
 	"io"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/muesli/reflow/wrap"
@@ -21,11 +22,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type SortBy string
+
+const (
+	Created  SortBy = "created"
+	Sla      SortBy = "sla"
+	Priority SortBy = "priority"
+	Status   SortBy = "status"
+	Number   SortBy = "number"
+)
+
+var sortByValues = []string{
+	string(Created),
+	string(Sla),
+	string(Priority),
+	string(Status),
+	string(Number),
+}
+
+var sortOrderValues = []string{"asc", "desc"}
+
 var (
 	contractID                string
 	fromStr                   string
 	toStr                     string
 	shouldDownloadAttachments bool
+	sortBy                    string // created|sla|priority|status|number
+	sortOrder                 string // asc|desc
+	humanDates                bool
+	hoursOnly                 bool
 )
 
 func init() {
@@ -35,6 +60,24 @@ func init() {
 	ticketsCmd.Flags().StringVar(&toStr, "to", "", "Filter change date to (RFC3339)")
 	ticketsCmd.Flags().StringVarP(&ticket, "ticket", "t", "", "Inspect ticket details")
 	ticketsCmd.Flags().BoolVarP(&shouldDownloadAttachments, "attachment", "a", false, "Inspect ticket details")
+	ticketsCmd.Flags().StringVar(&sortBy, "sort-by", "created", "Sort by: created|sla|priority|status|number")
+	ticketsCmd.Flags().StringVar(&sortOrder, "sort-order", "desc", "Sort order: asc|desc")
+	ticketsCmd.Flags().BoolVar(&humanDates, "human-dates", false, "Show dates as relative time (e.g. 3d ago)")
+	ticketsCmd.Flags().BoolVarP(&hoursOnly, "hoursOnly", "H", false, "Show only project hours")
+
+	ticketsCmd.RegisterFlagCompletionFunc(
+		"sort-by",
+		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return sortByValues, cobra.ShellCompDirectiveNoFileComp
+		},
+	)
+
+	ticketsCmd.RegisterFlagCompletionFunc(
+		"sort-order",
+		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return sortOrderValues, cobra.ShellCompDirectiveNoFileComp
+		},
+	)
 
 	ticketsCmd.RegisterFlagCompletionFunc(
 		"contract",
@@ -70,6 +113,18 @@ var ticketsCmd = &cobra.Command{
 					fmt.Printf("Error saving attachment [%s]: %v\n", att.FileName, err)
 					continue
 				}
+			}
+			return nil
+		}
+
+		if hoursOnly {
+			if resp.TotHrAprovadaPC != "" {
+				fmt.Printf("Total Approved Project: %s\n", resp.TotHrAprovadaPC)
+				fmt.Printf("Total Consumed Project: %s\n", resp.TotHrPC)
+				toHrPc, _ := strconv.ParseFloat(resp.TotHrPC, 64)
+				totHrAprovadaPC, _ := strconv.ParseFloat(resp.TotHrAprovadaPC, 64)
+				total := totHrAprovadaPC - toHrPc
+				fmt.Printf("Total Disponible Project: %.2f\n", total)
 			}
 			return nil
 		}
@@ -130,14 +185,22 @@ func handle_reports() error {
 		}),
 	)
 
-	table.Header("Ticket Number", "Status", "Priority", "Description", "SLA")
+	sortTickets(tickets, SortBy(sortBy), sortOrder)
+
+	table.Header("Ticket Number", "Status", "Priority", "Description", "SLA", "Created Date")
 	for _, t := range tickets {
+		created := parseTime(t.TicketCreated).String()
+		if humanDates {
+			created = humanizeTime(parseTime(t.TicketCreated))
+		}
+
 		table.Append(
 			t.TicketNumber,
 			t.Status,
 			t.Priority,
 			t.Description,
 			t.PercSLA,
+			created,
 		)
 	}
 
@@ -150,8 +213,24 @@ func renderTicket(t *mantis.SupportInfoResponse) {
 	fmt.Printf("Priority: %s\n", t.Priority)
 	fmt.Printf("Process Type: %s\n", t.ProcessType)
 	fmt.Printf("Category: %s\n", t.CategoryID)
-	fmt.Printf("Created At: %s\n", t.CreatedAt.Format(time.RFC3339))
-	fmt.Printf("Changed At: %s\n\n", t.ChangedAt.Format(time.RFC3339))
+	if t.TotHrAprovadaPC != "" {
+		fmt.Printf("Total Approved Project: %s\n", t.TotHrAprovadaPC)
+		fmt.Printf("Total Consumed Project: %s\n", t.TotHrPC)
+		toHrPc, _ := strconv.ParseFloat(t.TotHrPC, 64)
+		totHrAprovadaPC, _ := strconv.ParseFloat(t.TotHrAprovadaPC, 64)
+		total := totHrAprovadaPC - toHrPc
+		fmt.Printf("Total Disponible Project: %.2f\n", total)
+	}
+	createdAt := t.CreatedAt.Format(time.RFC3339)
+	changedAt := t.ChangedAt.Format(time.RFC3339)
+
+	if humanDates {
+		createdAt = humanizeTime(t.CreatedAt)
+		changedAt = humanizeTime(t.ChangedAt)
+	}
+
+	fmt.Printf("Created At: %s\n", createdAt)
+	fmt.Printf("Changed At: %s\n\n", changedAt)
 
 	fmt.Println("Description:")
 	fmt.Println(t.Description)
@@ -195,12 +274,21 @@ func renderTicket(t *mantis.SupportInfoResponse) {
 		fmt.Println()
 	}
 
+	createdAt = t.CreatedAt.Format("2006-01-02 15:04")
+
+	if humanDates {
+		createdAt = humanizeTime(t.CreatedAt)
+	}
+
+	fmt.Printf("Created At: %s\n", createdAt)
+	fmt.Printf("Changed At: %s\n\n", changedAt)
+
 	if len(t.Attachments) > 0 {
 		fmt.Println("--- Attachments ---")
 		for _, a := range t.Attachments {
 			fmt.Printf("%s (%s) by %s\n",
 				a.FileName,
-				a.CreatedAt.Format("2006-01-02 15:04"),
+				createdAt,
 				a.CreatedBy.Name,
 			)
 		}
@@ -285,4 +373,71 @@ func decodeBase64Lenient(s string) ([]byte, error) {
 	}
 
 	return base64.URLEncoding.DecodeString(s)
+}
+
+func parseTime(s string) time.Time {
+	t, _ := time.Parse("20060102150405", s)
+	return t
+}
+
+func sortTickets(tickets []mantis.TicketResponse, by SortBy, order string) {
+	less := func(i, j int) bool { return true }
+
+	parseSLA := func(s string) int {
+		s = strings.TrimSuffix(s, "%")
+		v, _ := strconv.Atoi(s)
+		return v
+	}
+	priorityRank := func(p string) int {
+		// "1: Muito Alta" -> 1
+		parts := strings.Split(p, ":")
+		v, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
+		return v
+	}
+
+	switch by {
+	case Created:
+		less = func(i, j int) bool {
+			return parseTime(tickets[i].TicketCreated).Before(parseTime(tickets[j].TicketCreated))
+		}
+	case Sla:
+		less = func(i, j int) bool {
+			return parseSLA(tickets[i].PercSLA) < parseSLA(tickets[j].PercSLA)
+		}
+	case Priority:
+		less = func(i, j int) bool {
+			return priorityRank(tickets[i].Priority) < priorityRank(tickets[j].Priority)
+		}
+	case Status:
+		less = func(i, j int) bool {
+			return tickets[i].Status < tickets[j].Status
+		}
+	case Number:
+		less = func(i, j int) bool {
+			return tickets[i].TicketNumber < tickets[j].TicketNumber
+		}
+	}
+
+	if order == "desc" {
+		sort.Slice(tickets, func(i, j int) bool { return !less(i, j) })
+	} else {
+		sort.Slice(tickets, less)
+	}
+}
+
+func humanizeTime(t time.Time) string {
+	d := time.Since(t)
+
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	case d < 30*24*time.Hour:
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	default:
+		return t.Format("2006-01-02")
+	}
 }
