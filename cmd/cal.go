@@ -140,7 +140,17 @@ func (r Renderer) RenderMonth(
 }
 
 func (r Renderer) printHeader(year int, month time.Month) {
-	fmt.Printf("      %s %d\n", mesesLong[int(month)-1], year)
+	title := fmt.Sprintf("%s %d", mesesLong[int(month)-1], year)
+
+	cellWidth := 2 + r.Padding
+	totalWidth := 7 * cellWidth
+
+	if len(title) < totalWidth {
+		leftPad := (totalWidth - len(title)) / 2
+		fmt.Printf("%s%s\n", strings.Repeat(" ", leftPad), title)
+	} else {
+		fmt.Println(title)
+	}
 }
 
 func (r Renderer) printWeekdays() {
