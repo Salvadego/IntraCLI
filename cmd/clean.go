@@ -26,8 +26,6 @@ var cleanFileValues = []string{
 	string(All),
 }
 
-var cleanFile string
-
 func init() {
 	rootCmd.AddCommand(cleanCmd)
 }

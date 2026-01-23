@@ -107,16 +107,17 @@ func (r Renderer) colorForHours(journeyHours, dayHours float64) string {
 		journeyHours = 8
 	}
 
-	diff := math.Max(dayHours-journeyHours, 0)
-	t := math.Min(diff/journeyHours, 1)
+	h := math.Max(0, math.Min(dayHours, journeyHours))
+
+	t := h / journeyHours
 
 	var c RGB
-	if t >= 0.5 {
-		local := (t - 0.5) / 0.5
-		c = lerp(Yellow, Red, local)
-	} else {
+	if t <= 0.5 {
 		local := t / 0.5
-		c = lerp(Green, Yellow, local)
+		c = lerp(Red, Yellow, local)
+	} else {
+		local := (t - 0.5) / 0.5
+		c = lerp(Yellow, Green, local)
 	}
 
 	return fmt.Sprintf("\033[38;2;%d;%d;%dm", c.R, c.G, c.B)
