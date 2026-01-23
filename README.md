@@ -66,7 +66,7 @@ go build -o intracli main.go
 mv intracli /usr/local/bin/  # optional
 ```
 
-To update simply go back to the repo, build and move the previous location:
+To update simply go back to the repo, build and move the executable to the previous location:
 ```bash
 cd IntraCLI
 git pull
