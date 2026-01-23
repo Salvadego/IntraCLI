@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"regexp"
 	"sort"
 	"strconv"
@@ -16,6 +18,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/Salvadego/IntraCLI/cache"
 	"github.com/Salvadego/mantis/mantis"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
@@ -51,6 +54,7 @@ var (
 	sortOrder                 string // asc|desc
 	humanDates                bool
 	hoursOnly                 bool
+	forceTickets              bool
 )
 
 func init() {
@@ -64,6 +68,7 @@ func init() {
 	ticketsCmd.Flags().StringVar(&sortOrder, "sort-order", "desc", "Sort order: asc|desc")
 	ticketsCmd.Flags().BoolVar(&humanDates, "human-dates", false, "Show dates as relative time (e.g. 3d ago)")
 	ticketsCmd.Flags().BoolVarP(&hoursOnly, "hoursOnly", "H", false, "Show only project hours")
+	ticketsCmd.Flags().BoolVarP(&forceTickets, "force-tickets", "f", false, "Refresh Tickets Response")
 
 	ticketsCmd.RegisterFlagCompletionFunc(
 		"sort-by",
@@ -83,6 +88,12 @@ func init() {
 		"contract",
 		contracsCompletion,
 	)
+
+	ticketsCmd.RegisterFlagCompletionFunc(
+		"ticket",
+		ticketCompletionFunc,
+	)
+
 	rootCmd.AddCommand(ticketsCmd)
 }
 
@@ -168,9 +179,19 @@ func handle_reports() error {
 	}
 
 	ctx := context.Background()
-	tickets, err := mantisClient.Dashboard.GetReport(ctx, opts)
+
+	sig := opts.Signature()
+	cacheFile := fmt.Sprintf(cache.TicketsCacheFileName, sig)
+
+	tickets, err := cache.ReadFromCache[mantis.TicketResponse](cacheFile)
 	if err != nil {
-		return err
+		tickets, err = mantisClient.Dashboard.GetReport(ctx, opts)
+		if err != nil {
+			log.Fatalf("Error getting contracts: %v", err)
+		}
+		if err := cache.WriteToCache(cacheFile, tickets); err != nil {
+			log.Fatalf("Failed to write to cache: %v", err)
+		}
 	}
 
 	table := tablewriter.NewTable(os.Stdout,
@@ -337,8 +358,8 @@ func formatTextBlock(s string, width int) string {
 	return strings.TrimSpace(out)
 }
 
-func saveFile(filename, fileContentBase64 string) error {
-	data, err := decodeBase64Lenient(fileContentBase64)
+func saveFile(filename, fileContentBase string) error {
+	data, err := decodeFileContent(fileContentBase)
 	if err != nil {
 		return err
 	}
@@ -359,10 +380,24 @@ func saveFile(filename, fileContentBase64 string) error {
 	return nil
 }
 
-func decodeBase64Lenient(s string) ([]byte, error) {
+func decodeFileContent(s string) ([]byte, error) {
 	s = strings.TrimSpace(s)
 	s = strings.ReplaceAll(s, "\n", "")
 	s = strings.ReplaceAll(s, "\r", "")
+
+	isHex := len(s)%2 == 0
+	for _, r := range s {
+		if !((r >= '0' && r <= '9') ||
+			(r >= 'a' && r <= 'f') ||
+			(r >= 'A' && r <= 'F')) {
+			isHex = false
+			break
+		}
+	}
+
+	if isHex {
+		return hex.DecodeString(s)
+	}
 
 	if m := len(s) % 4; m != 0 {
 		s += strings.Repeat("=", 4-m)
@@ -440,4 +475,36 @@ func humanizeTime(t time.Time) string {
 	default:
 		return t.Format("2006-01-02")
 	}
+}
+
+func loadAndMergeCachedTickets() ([]mantis.TicketResponse, error) {
+	files, err := cache.ListCacheFiles("tickets_")
+	if err != nil {
+		return nil, err
+	}
+
+	merged := make(map[string]mantis.TicketResponse)
+
+	for _, name := range files {
+		tickets, err := cache.ReadFromCache[mantis.TicketResponse](name)
+		if err != nil {
+			log.Printf("Skipping cache file %s: %v", name, err)
+			continue
+		}
+
+		for _, t := range tickets {
+			merged[t.TicketNumber] = t
+		}
+	}
+
+	out := make([]mantis.TicketResponse, 0, len(merged))
+	for _, t := range merged {
+		out = append(out, t)
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].TicketNumber < out[j].TicketNumber
+	})
+
+	return out, nil
 }
