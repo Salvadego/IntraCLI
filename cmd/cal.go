@@ -27,6 +27,11 @@ type CalConfig struct {
 	YearView bool
 }
 
+type YearMonth struct {
+	Year  int
+	Month time.Month
+}
+
 type DayInfo struct {
 	Date         time.Time
 	Hours        float64
@@ -389,8 +394,8 @@ var calCmd = &cobra.Command{
 		r := NewRenderer(calCfg)
 
 		if calCfg.YearView {
-			timesheetsByMonth := map[time.Month][]mantis.TimesheetsResponse{}
-			nonBusinessByMonth := map[time.Month]map[int]mantis.NonBusinessDay{}
+			timesheetsByMonth := map[YearMonth][]mantis.TimesheetsResponse{}
+			nonBusinessByMonth := map[YearMonth]map[int]mantis.NonBusinessDay{}
 
 			for m := time.January; m <= time.December+1; m++ {
 				realMonth := m
@@ -431,7 +436,9 @@ var calCmd = &cobra.Command{
 					ts = utils.ApplyFilter(ts, f, profile)
 				}
 
-				timesheetsByMonth[realMonth] = ts
+				ym := YearMonth{Year: realYear, Month: realMonth}
+
+				timesheetsByMonth[ym] = ts
 
 				nbFilename := nonBusinessCacheKey(realYear, realMonth)
 				var nbResp []mantis.NonBusinessDay
@@ -460,39 +467,67 @@ var calCmd = &cobra.Command{
 				for _, d := range nbResp {
 					nbMap[d.Date.Day()] = d
 				}
-				nonBusinessByMonth[realMonth] = nbMap
+				nonBusinessByMonth[ym] = nbMap
 			}
 
 			allDays := map[time.Month][]DayInfo{}
-			hoursByDateByMonth := map[time.Month]map[string]float64{}
-			dateAppointmentsByMonth := map[time.Month]map[string][]mantis.TimesheetsResponse{}
+			hoursByDateByMonth := map[YearMonth]map[string]float64{}
+			dateAppointmentsByMonth := map[YearMonth]map[string][]mantis.TimesheetsResponse{}
 
 			for m := time.January; m <= time.December+1; m++ {
-				hoursByDateByMonth[m] = map[string]float64{}
-				dateAppointmentsByMonth[m] = map[string][]mantis.TimesheetsResponse{}
+				realMonth := m
+				realYear := calCfg.Year
+				if m > time.December {
+					realMonth = time.January
+					realYear = calCfg.Year + 1
+				}
+
+				ym := YearMonth{Year: realYear, Month: realMonth}
+
+				hoursByDateByMonth[ym] = map[string]float64{}
+				dateAppointmentsByMonth[ym] = map[string][]mantis.TimesheetsResponse{}
 			}
 
 			for m := time.January; m <= time.December+1; m++ {
-				for _, ts := range timesheetsByMonth[m] {
+				realMonth := m
+				realYear := calCfg.Year
+
+				if m > time.December {
+					realMonth = time.January
+					realYear = calCfg.Year + 1
+				}
+
+				srcYM := YearMonth{Year: realYear, Month: realMonth}
+
+				for _, ts := range timesheetsByMonth[srcYM] {
 					parsedDate, err := time.Parse(time.RFC3339, ts.DateDoc)
 					if err != nil {
 						continue
 					}
 
 					key := parsedDate.Format("2006-01-02")
-					hoursByDateByMonth[parsedDate.Month()][key] += ts.Quantity
-					dateAppointmentsByMonth[parsedDate.Month()][key] =
-						append(dateAppointmentsByMonth[parsedDate.Month()][key], ts)
+					dstYM := YearMonth{
+						Year:  parsedDate.Year(),
+						Month: parsedDate.Month(),
+					}
+
+					if _, ok := hoursByDateByMonth[dstYM]; ok {
+						hoursByDateByMonth[dstYM][key] += ts.Quantity
+						dateAppointmentsByMonth[dstYM][key] =
+							append(dateAppointmentsByMonth[dstYM][key], ts)
+					}
 				}
 			}
 
 			for m := time.January; m <= time.December; m++ {
+				ym := YearMonth{Year: calCfg.Year, Month: m}
+
 				allDays[m] = buildDays(
 					calCfg.Year,
 					m,
-					hoursByDateByMonth[m],
-					dateAppointmentsByMonth[m],
-					nonBusinessByMonth[m],
+					hoursByDateByMonth[ym],
+					dateAppointmentsByMonth[ym],
+					nonBusinessByMonth[ym],
 					time.Now(),
 				)
 			}
