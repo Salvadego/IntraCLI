@@ -536,67 +536,62 @@ var calCmd = &cobra.Command{
 			return
 		}
 
-		filename := timesheetCacheKey(
-			currentUserID,
-			calCfg.Year,
-			time.Month(calCfg.Month),
+		year := calCfg.Year
+		month := time.Month(calCfg.Month)
+
+		nextYear := year
+		nextMonth := month + 1
+		if nextMonth > time.December {
+			nextMonth = time.January
+			nextYear++
+		}
+
+		getTimesheets := func(y int, m time.Month) []mantis.TimesheetsResponse {
+			filename := timesheetCacheKey(currentUserID, y, m)
+			var ts []mantis.TimesheetsResponse
+			var err error
+
+			if !calCfg.Force {
+				ts, err = cache.ReadFromCache[mantis.TimesheetsResponse](filename)
+				if err != nil {
+					ts = nil
+				}
+			}
+
+			if calCfg.Force || len(ts) == 0 {
+				ts, err = mantisClient.Timesheet.GetTimesheets(
+					mantisCtx,
+					currentUserID,
+					y,
+					m,
+				)
+				if err == nil {
+					_ = cache.WriteToCache(filename, ts)
+				}
+			}
+			return ts
+		}
+
+		timesheets := append(
+			getTimesheets(year, month),
+			getTimesheets(nextYear, nextMonth)...,
 		)
-
-		var err error
-		var timesheets []mantis.TimesheetsResponse
-
-		if !calCfg.Force {
-			timesheets, err = cache.ReadFromCache[mantis.TimesheetsResponse](filename)
-			if err != nil {
-				log.Printf("Warning: failed to read timesheet cache (%s): %v", filename, err)
-				timesheets = nil
-			}
-		}
-
-		if calCfg.Force || len(timesheets) == 0 {
-			timesheets, err = mantisClient.Timesheet.GetTimesheets(
-				mantisCtx,
-				currentUserID,
-				calCfg.Year,
-				time.Month(calCfg.Month),
-			)
-			if err != nil {
-				log.Fatalf("Error getting timesheets: %v", err)
-			}
-			if err := cache.WriteToCache(filename, timesheets); err != nil {
-				log.Printf("Warning: Failed to write to cache: %v", err)
-			}
-		}
 
 		if calCfg.FilterName != "" {
 			f := appConfig.SavedFilters[calCfg.FilterName]
 			timesheets = utils.ApplyFilter(timesheets, f, profile)
 		}
 
-		nbFilename := nonBusinessCacheKey(calCfg.Year, time.Month(calCfg.Month))
+		nbFilename := nonBusinessCacheKey(year, month)
 		var nonBusinessResp []mantis.NonBusinessDay
 		if !calCfg.Force {
-			nonBusinessResp, err = cache.ReadFromCache[mantis.NonBusinessDay](nbFilename)
-			if err != nil {
-				log.Printf("Warning: failed to read non-business cache (%s): %v", nbFilename, err)
-				nonBusinessResp = nil
-			}
+			nonBusinessResp, _ = cache.ReadFromCache[mantis.NonBusinessDay](nbFilename)
 		}
 		if calCfg.Force || len(nonBusinessResp) == 0 {
-			nb, err := mantisClient.Calendar.GetNonBusinessDays(
-				mantisCtx,
-				calCfg.Year,
-				time.Month(calCfg.Month),
+			nonBusinessResp, _ = mantisClient.Calendar.GetNonBusinessDays(
+				mantisCtx, year, month,
 			)
-			if err != nil {
-				log.Printf("Warning: failed to get non-business days: %v", err)
-				nonBusinessResp = nil
-			} else {
-				nonBusinessResp = nb
-				if err := cache.WriteToCache(nbFilename, nonBusinessResp); err != nil {
-					log.Printf("Warning: failed to write non-business cache (%s): %v", nbFilename, err)
-				}
-			}
+			_ = cache.WriteToCache(nbFilename, nonBusinessResp)
 		}
 
 		nonBusiness := map[int]mantis.NonBusinessDay{}
@@ -612,8 +607,7 @@ var calCmd = &cobra.Command{
 			if err != nil {
 				continue
 			}
-
-			if inCalendarMonth(parsedDate, calCfg.Year, time.Month(calCfg.Month)) {
+			if inCalendarMonth(parsedDate, year, month) {
 				key := parsedDate.Format("2006-01-02")
 				hoursByDate[key] += ts.Quantity
 				dateAppointments[key] = append(dateAppointments[key], ts)
@@ -621,8 +615,8 @@ var calCmd = &cobra.Command{
 		}
 
 		days := buildDays(
-			calCfg.Year,
-			time.Month(calCfg.Month),
+			year,
+			month,
 			hoursByDate,
 			dateAppointments,
 			nonBusiness,
@@ -631,22 +625,11 @@ var calCmd = &cobra.Command{
 
 		if calCfg.ShowDay != 0 {
 			info := days[calCfg.ShowDay-1]
-			r.RenderDay(
-				calCfg.Year,
-				time.Month(calCfg.Month),
-				calCfg.ShowDay,
-				info,
-				nonBusiness,
-			)
+			r.RenderDay(year, month, calCfg.ShowDay, info, nonBusiness)
 			return
 		}
 
-		r.RenderMonth(
-			calCfg.Year,
-			time.Month(calCfg.Month),
-			days,
-			profile.DailyJourney,
-		)
+		r.RenderMonth(year, month, days, profile.DailyJourney)
 	},
 }
 
