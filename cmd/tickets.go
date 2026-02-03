@@ -62,11 +62,12 @@ func init() {
 	ticketsCmd.Flags().StringVar(&contractID, "contract", "", "Filter by contract ID")
 	ticketsCmd.Flags().StringVar(&fromStr, "from", "", "Filter change date from (RFC3339)")
 	ticketsCmd.Flags().StringVar(&toStr, "to", "", "Filter change date to (RFC3339)")
-	ticketsCmd.Flags().StringVarP(&ticket, "ticket", "t", "", "Inspect ticket details")
-	ticketsCmd.Flags().BoolVarP(&shouldDownloadAttachments, "attachment", "a", false, "Inspect ticket details")
 	ticketsCmd.Flags().StringVar(&sortBy, "sort-by", "created", "Sort by: created|sla|priority|status|number")
 	ticketsCmd.Flags().StringVar(&sortOrder, "sort-order", "desc", "Sort order: asc|desc")
 	ticketsCmd.Flags().BoolVar(&humanDates, "human-dates", false, "Show dates as relative time (e.g. 3d ago)")
+
+	ticketsCmd.Flags().StringVarP(&ticket, "ticket", "t", "", "Inspect ticket details")
+	ticketsCmd.Flags().BoolVarP(&shouldDownloadAttachments, "attachment", "a", false, "Inspect ticket details")
 	ticketsCmd.Flags().BoolVarP(&hoursOnly, "hoursOnly", "H", false, "Show only project hours")
 	ticketsCmd.Flags().BoolVarP(&forceTickets, "force-tickets", "f", false, "Refresh Tickets Response")
 
@@ -194,38 +195,62 @@ func handle_reports() error {
 		}
 	}
 
-	table := tablewriter.NewTable(os.Stdout,
-		tablewriter.WithConfig(tablewriter.Config{
-			Row: tw.CellConfig{
-				Formatting: tw.CellFormatting{AutoWrap: tw.WrapNormal},
-				Alignment:  tw.CellAlignment{Global: tw.AlignLeft},
-				ColMaxWidths: tw.CellWidth{
-					Global: 50,
-				},
-			},
-		}),
-	)
-
 	sortTickets(tickets, SortBy(sortBy), sortOrder)
 
-	table.Header("Ticket Number", "Status", "Priority", "Description", "SLA", "Created Date")
-	for _, t := range tickets {
-		created := parseTime(t.TicketCreated).String()
-		if humanDates {
-			created = humanizeTime(parseTime(t.TicketCreated))
-		}
+	return render_by_status(tickets)
+}
 
-		table.Append(
-			t.TicketNumber,
-			t.Status,
-			t.Priority,
-			t.Description,
-			t.PercSLA,
-			created,
-		)
+func render_by_status(tickets []mantis.TicketResponse) error {
+	groups := make(map[string][]mantis.TicketResponse)
+	for _, t := range tickets {
+		groups[t.Status] = append(groups[t.Status], t)
 	}
 
-	return table.Render()
+	statuses := make([]string, 0, len(groups))
+	for s := range groups {
+		statuses = append(statuses, s)
+	}
+	sort.Strings(statuses)
+
+	for _, status := range statuses {
+		fmt.Printf("\n=== %s (%d) ===\n\n", status, len(groups[status]))
+
+		table := tablewriter.NewTable(os.Stdout,
+			tablewriter.WithConfig(tablewriter.Config{
+				Row: tw.CellConfig{
+					Formatting: tw.CellFormatting{AutoWrap: tw.WrapNormal},
+					Alignment:  tw.CellAlignment{Global: tw.AlignLeft},
+					ColMaxWidths: tw.CellWidth{
+						Global: 50,
+					},
+				},
+			}),
+		)
+
+		table.Header("Ticket Number", "Priority", "Description", "SLA", "Created Date")
+
+		for _, t := range groups[status] {
+			created := parseTime(t.TicketCreated).String()
+			if humanDates {
+				created = humanizeTime(parseTime(t.TicketCreated))
+			}
+
+			table.Append(
+				t.TicketNumber,
+				t.Priority,
+				t.Description,
+				t.PercSLA,
+				created,
+			)
+		}
+
+		err := table.Render()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func renderTicket(t *mantis.SupportInfoResponse) {
