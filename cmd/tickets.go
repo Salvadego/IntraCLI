@@ -55,6 +55,7 @@ var (
 	humanDates                bool
 	hoursOnly                 bool
 	forceTickets              bool
+	inline                    bool
 )
 
 func init() {
@@ -70,6 +71,7 @@ func init() {
 	ticketsCmd.Flags().BoolVarP(&shouldDownloadAttachments, "attachment", "a", false, "Inspect ticket details")
 	ticketsCmd.Flags().BoolVarP(&hoursOnly, "hoursOnly", "H", false, "Show only project hours")
 	ticketsCmd.Flags().BoolVarP(&forceTickets, "force-tickets", "f", false, "Refresh Tickets Response")
+	ticketsCmd.Flags().BoolVarP(&inline, "inline", "i", false, "Display tickets inlined")
 
 	ticketsCmd.RegisterFlagCompletionFunc(
 		"sort-by",
@@ -196,6 +198,14 @@ func handle_reports() error {
 	}
 
 	sortTickets(tickets, SortBy(sortBy), sortOrder)
+
+	if inline {
+		lines := ticketsToLines(tickets)
+		for i := range lines {
+			fmt.Println(lines[i])
+		}
+		return nil
+	}
 
 	return render_by_status(tickets)
 }
@@ -532,4 +542,39 @@ func loadAndMergeCachedTickets() ([]mantis.TicketResponse, error) {
 	})
 
 	return out, nil
+}
+
+func ticketsToLines(tickets []mantis.TicketResponse) []string {
+	const (
+		numW  = 10
+		prioW = 16
+		dateW = 12
+		descW = 70
+	)
+
+	lines := make([]string, 0, len(tickets))
+
+	for _, t := range tickets {
+		created := parseTime(t.TicketCreated).Format("2006-01-02")
+		if humanDates {
+			created = humanizeTime(parseTime(t.TicketCreated))
+		}
+
+		desc := strings.ReplaceAll(t.Description, "\n", " ")
+		if len(desc) > descW {
+			desc = desc[:descW-1] + "…"
+		}
+
+		line := fmt.Sprintf(
+			"%-*s  %-*s  %-*s  %-*s",
+			numW, t.TicketNumber,
+			prioW, t.Priority,
+			dateW, created,
+			descW, desc,
+		)
+
+		lines = append(lines, line)
+	}
+
+	return lines
 }

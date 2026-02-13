@@ -66,7 +66,7 @@ var listTimesheetsCmd = &cobra.Command{
 			timesheets = utils.ApplyFilter(timesheets, f, profile)
 		}
 
-		filename := fmt.Sprintf(cache.TimesheetsCacheFileName, currentUserID)
+		filename := fmt.Sprintf(cache.TimesheetsCacheFileName, currentUserID, calYear, time.Month(calMonth))
 		if err := cache.WriteToCache(filename, timesheets); err != nil {
 			log.Printf("Warning: Failed to write timesheets to cache: %v", err)
 		}

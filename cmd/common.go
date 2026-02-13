@@ -276,7 +276,7 @@ func timesheetIdCompletionFunc(
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	filename := fmt.Sprintf(cache.TimesheetsCacheFileName, profile.UserID)
+	filename := fmt.Sprintf(cache.TimesheetsCacheFileName, profile.UserID, now.Year(), now.Month())
 	timesheets, err := cache.ReadFromCache[mantis.TimesheetsResponse](filename)
 
 	if err != nil {
