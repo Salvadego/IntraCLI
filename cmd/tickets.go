@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/Salvadego/IntraCLI/cache"
+	"github.com/Salvadego/IntraCLI/utils"
 	"github.com/Salvadego/mantis/mantis"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
@@ -55,6 +56,7 @@ var (
 	humanDates                bool
 	hoursOnly                 bool
 	forceTickets              bool
+	forceColors               bool
 	inline                    bool
 )
 
@@ -72,7 +74,7 @@ func init() {
 	ticketsCmd.Flags().BoolVarP(&hoursOnly, "hoursOnly", "H", false, "Show only project hours")
 	ticketsCmd.Flags().BoolVarP(&forceTickets, "force-tickets", "f", false, "Refresh Tickets Response")
 	ticketsCmd.Flags().BoolVarP(&inline, "inline", "i", false, "Display tickets inlined")
-
+	ticketsCmd.Flags().BoolVar(&forceColors, "colors", false, "Force non tty colors")
 	ticketsCmd.RegisterFlagCompletionFunc(
 		"sort-by",
 		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -223,7 +225,9 @@ func render_by_status(tickets []mantis.TicketResponse) error {
 	sort.Strings(statuses)
 
 	for _, status := range statuses {
-		fmt.Printf("\n=== %s (%d) ===\n\n", status, len(groups[status]))
+		fmt.Println()
+		utils.SectionStyle.Printf("■ %s ", status)
+		utils.MutedStyle.Printf("(%d)\n\n", len(groups[status]))
 
 		table := tablewriter.NewTable(os.Stdout,
 			tablewriter.WithConfig(tablewriter.Config{
@@ -247,9 +251,9 @@ func render_by_status(tickets []mantis.TicketResponse) error {
 
 			table.Append(
 				t.TicketNumber,
-				t.Priority,
+				colorPriority(t.Priority),
 				t.Description,
-				t.PercSLA,
+				colorSLA(t.PercSLA),
 				created,
 			)
 		}
@@ -264,9 +268,10 @@ func render_by_status(tickets []mantis.TicketResponse) error {
 }
 
 func renderTicket(t *mantis.SupportInfoResponse) {
-	fmt.Printf("Ticket: %s\n", t.ObjectID)
-	fmt.Printf("Status: %s\n", t.UserStatusDescription)
-	fmt.Printf("Priority: %s\n", t.Priority)
+	utils.TitleStyle.Printf("Ticket %s\n", t.ObjectID)
+	fmt.Println(strings.Repeat("─", 50))
+	fmt.Printf("%s: %s\n", utils.MutedStyle.Sprint("Status"), t.UserStatusDescription)
+	fmt.Printf("%s: %s\n", utils.MutedStyle.Sprint("Priority"), colorPriority(t.Priority))
 	fmt.Printf("Process Type: %s\n", t.ProcessType)
 	fmt.Printf("Category: %s\n", t.CategoryID)
 	if t.TotHrAprovadaPC != "" {
@@ -288,7 +293,8 @@ func renderTicket(t *mantis.SupportInfoResponse) {
 	fmt.Printf("Created At: %s\n", createdAt)
 	fmt.Printf("Changed At: %s\n\n", changedAt)
 
-	fmt.Println("Description:")
+	utils.SectionStyle.Println("Description")
+	fmt.Println(strings.Repeat("─", 30))
 	fmt.Println(t.Description)
 	fmt.Println()
 
@@ -302,8 +308,8 @@ func renderTicket(t *mantis.SupportInfoResponse) {
 	}
 
 	if t.ProcessorDetail.Name != "" {
-		fmt.Println("Processor:")
-		fmt.Printf("%s <%s>\n\n",
+		utils.TitleStyle.Println("Processor:")
+		utils.TitleStyle.Printf("%s <%s>\n\n",
 			t.ProcessorDetail.Name,
 			t.ProcessorDetail.Email,
 		)
@@ -315,14 +321,12 @@ func renderTicket(t *mantis.SupportInfoResponse) {
 
 	fmt.Println("--- Texts ---")
 	for _, tx := range t.Texts {
-		fmt.Printf("\n--- [%s] ---\n",
-			tx.TDFCreatedAt.Format("2006-01-02 15:04"),
-		)
+		utils.MutedStyle.Printf("\n[%s]\n", tx.TDFCreatedAt.Format("2006-01-02 15:04"))
 		displayName := tx.TDFUser
 		if tx.UserInformation != nil && tx.UserInformation.Name != "" {
 			displayName = tx.UserInformation.Name
 		}
-		fmt.Printf("[%s (%s)]\n",
+		utils.TitleStyle.Printf("[%s (%s)]\n",
 			displayName,
 			tx.TdID,
 		)
@@ -567,9 +571,9 @@ func ticketsToLines(tickets []mantis.TicketResponse) []string {
 
 		line := fmt.Sprintf(
 			"%-*s  %-*s  %-*s  %-*s",
-			numW, t.TicketNumber,
-			prioW, t.Priority,
-			dateW, created,
+			numW, utils.SuccessStyle.Sprint(t.TicketNumber),
+			prioW, colorPriority(t.Priority),
+			dateW, utils.MutedStyle.Sprint(created),
 			descW, desc,
 		)
 
@@ -577,4 +581,28 @@ func ticketsToLines(tickets []mantis.TicketResponse) []string {
 	}
 
 	return lines
+}
+
+func colorPriority(p string) string {
+	switch {
+	case strings.HasPrefix(p, "1"):
+		return utils.HighPriority.Sprint(p)
+	case strings.HasPrefix(p, "2"):
+		return utils.MediumPriority.Sprint(p)
+	default:
+		return utils.LowPriority.Sprint(p)
+	}
+}
+
+func colorSLA(s string) string {
+	v, _ := strconv.Atoi(strings.TrimSuffix(s, "%"))
+
+	switch {
+	case v < 50:
+		return utils.SlaBad.Sprintf("%s", s)
+	case v < 80:
+		return utils.SlaWarn.Sprintf("%s", s)
+	default:
+		return utils.SlaGood.Sprintf("%s", s)
+	}
 }

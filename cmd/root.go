@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Salvadego/IntraCLI/config"
+	"github.com/fatih/color"
 
 	"github.com/spf13/cobra"
 )
@@ -15,6 +16,9 @@ var rootCmd = &cobra.Command{
 	Short: "IntraCLI is a CLI tool for managing Mantis timesheets.",
 	Long:  `A simple CLI tool to interact with the Mantis API.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if forceColors {
+			color.NoColor = false
+		}
 		if !isCompletionCmd(cmd) &&
 			cmd.Name() != "intracli" {
 			return initCommonMantisClient(cmd)
