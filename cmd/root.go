@@ -19,10 +19,23 @@ var rootCmd = &cobra.Command{
 		if forceColors {
 			color.NoColor = false
 		}
-		if !isCompletionCmd(cmd) &&
-			cmd.Name() != "intracli" {
+
+		if cmd.CalledAs() == cobra.ShellCompRequestCmd {
+			return nil
+		}
+
+		if isShellCompletion() {
+			return nil
+		}
+
+		if isCompletionCmd(cmd) {
+			return nil
+		}
+
+		if cmd.Name() != "intracli" {
 			return initCommonMantisClient(cmd)
 		}
+
 		return nil
 	},
 }
@@ -41,6 +54,10 @@ func Execute() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func isShellCompletion() bool {
+	return os.Getenv("COMP_LINE") != ""
 }
 
 func init() {

@@ -111,7 +111,7 @@ func deleteByCleanType(f CleanFile) error {
 }
 
 var cleanCmd = &cobra.Command{
-	Use:   "clean",
+	Use:   "clean <cleanType>",
 	Short: "Clean cache files from the cache directory",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return deleteByCleanType(CleanFile(args[0]))

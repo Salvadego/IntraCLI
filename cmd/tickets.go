@@ -321,7 +321,12 @@ func renderTicket(t *mantis.SupportInfoResponse) {
 
 	fmt.Println("--- Texts ---")
 	for _, tx := range t.Texts {
-		utils.MutedStyle.Printf("\n[%s]\n", tx.TDFCreatedAt.Format("2006-01-02 15:04"))
+		createdAt = tx.TDFCreatedAt.Format("2006-01-02 15:04")
+		if humanDates {
+			createdAt = humanizeTime(tx.TDFCreatedAt)
+		}
+
+		utils.MutedStyle.Printf("\n[%s]\n", createdAt)
 		displayName := tx.TDFUser
 		if tx.UserInformation != nil && tx.UserInformation.Name != "" {
 			displayName = tx.UserInformation.Name
