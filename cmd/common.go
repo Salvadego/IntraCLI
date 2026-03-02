@@ -344,19 +344,9 @@ func contracsCompletion(
 	args []string,
 	toComplete string,
 ) ([]string, cobra.ShellCompDirective) {
-
-	ctx := context.Background()
-
 	contracts, err := cache.ReadFromCache[mantis.LtContract](cache.ContractsListCacheFileName)
 	if err != nil {
-		contracts, err = mantisClient.Dashboard.GetReportContracts(ctx)
-		if err != nil {
-			log.Fatalf("Error getting contracts: %v", err)
-		}
-		err = cache.WriteToCache(cache.ContractsListCacheFileName, contracts)
-		if err != nil {
-			log.Fatalf("Failed to write to cache: %v", err)
-		}
+		return nil, cobra.ShellCompDirectiveError
 	}
 
 	if err != nil {

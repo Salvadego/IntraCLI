@@ -88,11 +88,19 @@ func deleteByCleanType(f CleanFile) error {
 			}
 		}
 	case Employee:
-		if err := os.Remove(cache.EmployeeListCacheFileName); err != nil {
+		filepath, err := cache.GetCacheFilePath(cache.EmployeeListCacheFileName)
+		if err != nil {
+			return err
+		}
+		if err := os.Remove(filepath); err != nil {
 			return err
 		}
 	case Contracts:
-		if err := os.Remove(cache.ContractsListCacheFileName); err != nil {
+		filepath, err := cache.GetCacheFilePath(cache.ContractsListCacheFileName)
+		if err != nil {
+			return err
+		}
+		if err := os.Remove(filepath); err != nil {
 			return err
 		}
 
@@ -114,6 +122,9 @@ var cleanCmd = &cobra.Command{
 	Use:   "clean <cleanType>",
 	Short: "Clean cache files from the cache directory",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("missing clean type")
+		}
 		return deleteByCleanType(CleanFile(args[0]))
 	},
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
