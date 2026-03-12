@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/Salvadego/IntraCLI/types"
 	"gopkg.in/yaml.v3"
 )
 
@@ -16,13 +14,13 @@ const (
 )
 
 type Config struct {
-	DefaultProfile  string                           `yaml:"defaultProfile"`
-	Profiles        map[string]Profile               `yaml:"profiles"`
-	RoleID          int                              `yaml:"roleID"`
-	BaseURL         string                           `yaml:"baseURL"`
-	Editor          string                           `yaml:"editor"`
-	SavedFilters    map[string]types.TimesheetFilter `yaml:"savedFilters"`
-	SavedDayFilters map[string]types.DailyFilter     `yaml:"savedDayFilters"`
+	DefaultProfile  string             `yaml:"defaultProfile"`
+	Profiles        map[string]Profile `yaml:"profiles"`
+	RoleID          int                `yaml:"roleID"`
+	BaseURL         string             `yaml:"baseURL"`
+	Editor          string             `yaml:"editor"`
+	SavedFilters    map[string]string  `yaml:"savedFilters"`
+	SavedDayFilters map[string]string  `yaml:"savedDayFilters"`
 }
 
 type Profile struct {

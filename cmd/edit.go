@@ -8,7 +8,6 @@ import (
 	"github.com/Salvadego/IntraCLI/types"
 	"github.com/Salvadego/IntraCLI/utils"
 	"github.com/Salvadego/mantis/mantis"
-
 	"github.com/spf13/cobra"
 )
 
@@ -21,11 +20,11 @@ var (
 	editDate          string
 	editTimesheetType string
 	editUseEditor     bool
-	editFilterName    string
+	editFilterFlag    string
 )
 
 func init() {
-	editCmd.Flags().IntVarP(&editTimesheetID, "id", "i", 0, "Timesheet ID to edit (skip if using filter)")
+	editCmd.Flags().IntVarP(&editTimesheetID, "id", "i", 0, "Timesheet ID to edit")
 	editCmd.Flags().StringVarP(&editDescription, "description", "d", "", "New description")
 	editCmd.Flags().StringVarP(&editHours, "hours", "H", "", "New hours")
 	editCmd.Flags().StringVarP(&editTicket, "ticket", "t", "", "New ticket number")
@@ -33,7 +32,8 @@ func init() {
 	editCmd.Flags().StringVarP(&editDate, "date", "D", "", "New date")
 	editCmd.Flags().StringVarP(&editTimesheetType, "type", "T", "", "New timesheet type")
 	editCmd.Flags().BoolVarP(&editUseEditor, "editor", "e", false, "Open editor for editing")
-	editCmd.Flags().StringVar(&editFilterName, "filter", "", "Use a saved filter for batch editing")
+	editCmd.Flags().StringVar(&editFilterFlag, "filter", "",
+		"Batch-edit by filter: raw qlvm query or @savedName")
 
 	editCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
 	editCmd.RegisterFlagCompletionFunc("project-alias", projectAliasCompletionFunc)
@@ -58,25 +58,25 @@ var editCmd = &cobra.Command{
 
 		var timesheets []mantis.TimesheetsResponse
 
-		if editTimesheetID != 0 {
-			ts, err := client.Timesheet.Get(ctx, timesheetID)
+		switch {
+		case editTimesheetID != 0:
+			ts, err := client.Timesheet.Get(ctx, editTimesheetID)
 			if err != nil {
-				log.Fatalf("Failed to fetch timesheets: %v", err)
+				log.Fatalf("Failed to fetch timesheet %d: %v", editTimesheetID, err)
 			}
 			timesheets = append(timesheets, ts[0])
-		} else if editFilterName != "" {
-			filter, ok := cfg.SavedFilters[editFilterName]
-			if !ok {
-				log.Fatalf("Saved filter '%s' not found", editFilterName)
-			}
+
+		case editFilterFlag != "":
+			query := resolveFilter(editFilterFlag, appConfig.SavedFilters)
 
 			all, err := client.Timesheet.GetTimesheets(ctx, currentUserID, time.Now().Year(), time.Now().Month())
 			if err != nil {
 				log.Fatalf("Failed to fetch timesheets: %v", err)
 			}
 
-			timesheets = utils.ApplyFilter(all, filter, profile)
-		} else {
+			timesheets = utils.ApplyFilter(all, query, profile)
+
+		default:
 			log.Fatal("Must provide either --id or --filter")
 		}
 
@@ -86,7 +86,6 @@ var editCmd = &cobra.Command{
 		}
 
 		for _, ts := range timesheets {
-			// Parse hours
 			hours := ts.Quantity
 			if editHours != "" {
 				h, err := parseDurationString(editHours)
@@ -96,7 +95,6 @@ var editCmd = &cobra.Command{
 				hours = h
 			}
 
-			// Date
 			date := ts.DateDoc[:10]
 			if editDate != "" {
 				if _, err := time.Parse("2006-01-02", editDate); err != nil {
@@ -105,19 +103,16 @@ var editCmd = &cobra.Command{
 				date = editDate
 			}
 
-			// Description
 			desc := ts.Description
 			if editDescription != "" {
 				desc = editDescription
 			}
 
-			// Ticket
-			ticket := ts.TicketNo
+			tkn := ts.TicketNo
 			if editTicket != "" {
-				ticket = editTicket
+				tkn = editTicket
 			}
 
-			// Project
 			salesOrder := int(ts.SalesOrder)
 			salesOrderLine := int(ts.SalesOrderLine)
 			if editProjectAlias != "" {
@@ -125,34 +120,31 @@ var editCmd = &cobra.Command{
 				if !ok {
 					log.Fatalf("Unknown project alias '%s'", editProjectAlias)
 				}
-				if info.NeedsTicket && ticket == "" {
+				if info.NeedsTicket && tkn == "" {
 					log.Fatalf("Project '%s' requires a ticket", editProjectAlias)
 				}
 				salesOrder = info.SalesOrder
 				salesOrderLine = info.SalesOrderLine
 			}
 
-			// Timesheet type
 			tsType := ts.TimesheetType
 			if editTimesheetType != "" {
-				if key, ok := types.TimesheetTypeLookup[editTimesheetType]; ok {
-					tsType = key
-				} else {
+				key, ok := types.TimesheetTypeLookup[editTimesheetType]
+				if !ok {
 					log.Fatalf("Unknown timesheet type '%s'", editTimesheetType)
 				}
+				tsType = key
 			}
 
-			// Delete old
 			if err := client.Timesheet.DeleteTimesheet(ctx, ts.TimesheetID); err != nil {
 				log.Printf("Failed to delete timesheet %d: %v", ts.TimesheetID, err)
 				continue
 			}
 
-			// Re-create via appoint
 			entry := TimesheetEntry{
 				Date:           date,
 				Description:    desc,
-				TicketNo:       ticket,
+				TicketNo:       tkn,
 				TimesheetType:  tsType,
 				Hours:          hours,
 				SalesOrder:     salesOrder,

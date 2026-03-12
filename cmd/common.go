@@ -228,13 +228,14 @@ func filterNameCompletionFunc(cmd *cobra.Command, args []string, toComplete stri
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
-	var completions []string
-	for name := range cfg.SavedFilters {
-		if strings.HasPrefix(name, toComplete) {
-			completions = append(completions, name)
+	prefix := strings.TrimPrefix(toComplete, "@")
+	var out []string
+	for name, query := range cfg.SavedFilters {
+		if strings.HasPrefix(name, prefix) {
+			out = append(out, fmt.Sprintf("@%s\t%s", name, query))
 		}
 	}
-	return completions, cobra.ShellCompDirectiveNoFileComp
+	return out, cobra.ShellCompDirectiveNoFileComp
 }
 
 func filterDaysNameCompletionFunc(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -242,13 +243,14 @@ func filterDaysNameCompletionFunc(cmd *cobra.Command, args []string, toComplete 
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
-	var completions []string
-	for name := range cfg.SavedDayFilters {
-		if strings.HasPrefix(name, toComplete) {
-			completions = append(completions, name)
+	prefix := strings.TrimPrefix(toComplete, "@")
+	var out []string
+	for name, query := range cfg.SavedDayFilters {
+		if strings.HasPrefix(name, prefix) {
+			out = append(out, fmt.Sprintf("@%s\t%s", name, query))
 		}
 	}
-	return completions, cobra.ShellCompDirectiveNoFileComp
+	return out, cobra.ShellCompDirectiveNoFileComp
 }
 
 func timesheetIdCompletionFunc(
@@ -345,10 +347,6 @@ func contracsCompletion(
 	toComplete string,
 ) ([]string, cobra.ShellCompDirective) {
 	contracts, err := cache.ReadFromCache[mantis.LtContract](cache.ContractsListCacheFileName)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Salvadego/IntraCLI/config"
-	"github.com/Salvadego/IntraCLI/types"
 	"github.com/Salvadego/IntraCLI/utils"
 	"github.com/Salvadego/mantis/mantis"
 	"github.com/fatih/color"
@@ -19,21 +18,26 @@ import (
 )
 
 var (
-	dateSummaryFilterName string
-	filterName            string
-	calYear               int
-	calMonth              int
+	dateTSFilterFlag  string // --filter-timesheet: raw query or @name
+	dateDayFilterFlag string // --filter-day:        raw query or @name
+	calYear           int
+	calMonth          int
+	minDailyHours     float64
 )
 
 func init() {
-	dateSummaryCmd.Flags().StringVar(&dateSummaryFilterName, "filter-day", "", "Apply a saved day filter")
-	dateSummaryCmd.Flags().StringVar(&filterName, "filter-timesheet", "", "Apply a saved timesheet filter")
+	dateSummaryCmd.Flags().StringVar(&dateTSFilterFlag, "filter-timesheet", "",
+		"Filter timesheets: raw qlvm query or @savedName")
+	dateSummaryCmd.Flags().StringVar(&dateDayFilterFlag, "filter-day", "",
+		"Filter daily rows: raw qlvm query or @savedDayName")
+	dateSummaryCmd.Flags().Float64Var(&minDailyHours, "min-hours", 0,
+		"Minimum daily hours threshold for MISSING classification")
 
-	dateSummaryCmd.RegisterFlagCompletionFunc("filter-day", filterDaysNameCompletionFunc)
 	dateSummaryCmd.RegisterFlagCompletionFunc("filter-timesheet", filterNameCompletionFunc)
+	dateSummaryCmd.RegisterFlagCompletionFunc("filter-day", filterDaysNameCompletionFunc)
 
 	dateSummaryCmd.Flags().IntVarP(&calYear, "year", "y", 0, "Year (default current)")
-	dateSummaryCmd.Flags().IntVarP(&calMonth, "month", "m", 0, "Month (1-12, optional)")
+	dateSummaryCmd.Flags().IntVarP(&calMonth, "month", "m", 0, "Month (1-12, optional; omit for full year)")
 	rootCmd.AddCommand(dateSummaryCmd)
 }
 
@@ -56,73 +60,50 @@ var dateSummaryCmd = &cobra.Command{
 			log.Fatalf("Profile '%s' not found", currentProfileName)
 		}
 
-		now := time.Now()
+		n := time.Now()
 		if calYear == 0 {
-			calYear = now.Year()
+			calYear = n.Year()
 		}
 
+		// ── fetch timesheets ───────────────────────────────────────────────
 		var timesheets []mantis.TimesheetsResponse
 		if calMonth == 0 {
-			var all []mantis.TimesheetsResponse
 			for m := time.January; m <= time.December; m++ {
-				tss, err := mantisClient.Timesheet.GetTimesheets(
-					mantisCtx,
-					currentUserID,
-					calYear,
-					m)
+				tss, err := mantisClient.Timesheet.GetTimesheets(mantisCtx, currentUserID, calYear, m)
 				if err != nil {
 					fmt.Printf("Error fetching month %d: %v\n", m, err)
 					continue
 				}
-				all = append(all, tss...)
+				timesheets = append(timesheets, tss...)
 			}
-			timesheets = all
 		} else {
-			timesheets, err = mantisClient.Timesheet.GetTimesheets(mantisCtx,
-				currentUserID,
-				calYear,
-				time.Month(calMonth))
+			timesheets, err = mantisClient.Timesheet.GetTimesheets(
+				mantisCtx, currentUserID, calYear, time.Month(calMonth),
+			)
 			if err != nil {
 				fmt.Printf("Error fetching timesheets: %v\n", err)
 				return
 			}
 		}
 
-		if err != nil {
-			fmt.Printf("Error fetching timesheets: %v\n", err)
-			return
+		// ── apply optional timesheet filter ───────────────────────────────
+		if dateTSFilterFlag != "" {
+			query := resolveFilter(dateTSFilterFlag, cfg.SavedFilters)
+			timesheets = utils.ApplyFilter(timesheets, query, profile)
 		}
 
-		var timesheetFilter types.TimesheetFilter
-		if filterName != "" {
-			f, ok := cfg.SavedFilters[filterName]
-			if !ok {
-				fmt.Printf("Timesheet filter '%s' not found\n", filterName)
-				return
-			}
-			timesheetFilter = f
-		}
+		// ── resolve optional day filter ───────────────────────────────────
+		dayQuery := resolveFilter(dateDayFilterFlag, cfg.SavedDayFilters)
 
-		timesheets = utils.ApplyFilter(timesheets, timesheetFilter, profile)
+		summaries, weeklyTotals, monthlyTotals := utils.GenerateSummary(
+			timesheets, profile, dayQuery, minDailyHours,
+		)
 
-		var dayFilter types.DailyFilter
-		if dateSummaryFilterName != "" {
-			f, ok := cfg.SavedDayFilters[dateSummaryFilterName]
-			if !ok {
-				fmt.Printf("Daily filter '%s' not found\n", dateSummaryFilterName)
-				return
-			}
-			dayFilter = f
-		}
-
-		summaries, weeklyTotals, monthlyTotals := utils.GenerateSummary(timesheets, profile, dayFilter)
-
+		// ── render table ──────────────────────────────────────────────────
 		colorCfg := renderer.ColorizedConfig{
 			Header: renderer.Tint{FG: renderer.Colors{color.FgHiWhite, color.Bold}},
 			Column: renderer.Tint{
-				Columns: []renderer.Tint{
-					{}, {}, {}, {}, {}, {}, {}, {},
-				},
+				Columns: []renderer.Tint{{}, {}, {}, {}, {}, {}, {}, {}},
 			},
 		}
 
@@ -169,7 +150,6 @@ var dateSummaryCmd = &cobra.Command{
 			weeks = append(weeks, w)
 		}
 		sort.Strings(weeks)
-
 		for _, w := range weeks {
 			fmt.Printf("  %s: %.2f hours\n", w, weeklyTotals[w])
 		}
@@ -182,8 +162,7 @@ var dateSummaryCmd = &cobra.Command{
 			days++
 		}
 		if days > 0 {
-			avg := total / days
-			fmt.Printf("\nAVERAGE DAILY HOURS: %.2f (target %.2f)\n", avg, dayFilter.MinDailyHours)
+			fmt.Printf("\nAVERAGE DAILY HOURS: %.2f (target %.2f)\n", total/days, minDailyHours)
 		}
 	},
 }
@@ -203,9 +182,7 @@ func printMonthlyTotals(monthlyTotals map[string]float64) {
 		items = append(items, kv{key: k, t: t})
 	}
 
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].t.Before(items[j].t)
-	})
+	sort.Slice(items, func(i, j int) bool { return items[i].t.Before(items[j].t) })
 
 	fmt.Println("\nMONTHLY TOTALS:")
 	for _, it := range items {
