@@ -66,7 +66,7 @@ type DailySummaryRecord struct {
 var Engine = qlvm.New(
 	qlvm.SchemaFromStruct[TimesheetRecord]().
 		Prefix('.', "ticket", qlvm.Contains).
-		Prefix('#', "ticket", qlvm.EQ).
+		Prefix('#', "description", qlvm.Contains).
 		Suffix('?', qlvm.Exists()),
 )
 
@@ -279,8 +279,6 @@ func ExpandTokens(query string) string {
 		return date(t)
 	})
 
-
-	fmt.Println(out)
 	return out
 }
 
@@ -313,19 +311,28 @@ func isoWeek(t time.Time) int {
 //
 //	ResolveFilter(`@toyoMeetings`, cfg.SavedFilters)
 //	ResolveFilter(`date >= yesterday AND project = toyo`, …)
+var reSavedFilter = regexp.MustCompile(`@([a-zA-Z0-9_\-]+)`)
+
 func ResolveFilter(value string, saved map[string]string) (string, error) {
 	if value == "" {
 		return "", nil
 	}
-	query := value
-	if value[0] == '@' {
-		name := value[1:]
-		q, ok := saved[name]
-		if !ok {
-			return "", fmt.Errorf("saved filter %q not found", name)
+
+	var lastErr error
+
+	query := reSavedFilter.ReplaceAllStringFunc(value, func(match string) string {
+		name := match[1:]
+		if q, ok := saved[name]; ok {
+			return q
 		}
-		query = q
+		lastErr = fmt.Errorf("saved filter %q not found", name)
+		return match
+	})
+
+	if lastErr != nil {
+		return "", lastErr
 	}
+
 	return ExpandTokens(query), nil
 }
 

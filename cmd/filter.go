@@ -41,7 +41,7 @@ func init() {
 //
 //	ticket = "INC-123"       exact ticket match
 //	.ticket = INC            ticket contains "INC"
-//	#ticket = INC-123        alias for exact ticket match
+//	#description = meeting   alias for regex description match
 //	has_ticket?              only entries with a ticket
 //	date >= 2025-07-01       date comparison (YYYY-MM-DD)
 //	hours > 4
