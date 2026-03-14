@@ -1,6 +1,6 @@
 module github.com/Salvadego/IntraCLI
 
-go 1.24.4
+go 1.25.8
 
 require (
 	github.com/Salvadego/mantis v0.0.0-20260123145529-7fd1be20d32b
@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/Salvadego/qlvm v0.0.0-20260312214600-50fe7c291c91 // indirect
 	github.com/clipperhouse/displaywidth v0.7.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.1 // indirect

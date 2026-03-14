@@ -5,52 +5,62 @@ import (
 	"log"
 
 	"github.com/Salvadego/IntraCLI/config"
-	"github.com/Salvadego/IntraCLI/types"
 	"github.com/spf13/cobra"
 )
 
 var (
-	filterSaveName    string
-	filterDeleteName  string
-	filterList        bool
-	fromDate          string
-	toDate            string
-	filterTicket      string
-	filterProject     string
-	filterType        string
-	filterDescription string
-	filterQuantity    string
-	hasTicketOnly     bool
+	filterSaveName   string
+	filterDeleteName string
+	filterList       bool
 )
 
 func init() {
-	filterTimesheetsCmd.Flags().StringVar(&filterSaveName, "save", "", "Save filter with given name")
+	filterTimesheetsCmd.Flags().StringVar(&filterSaveName, "save", "", "Save the query with the given name")
 	filterTimesheetsCmd.Flags().BoolVar(&filterList, "list", false, "List saved filters")
-	filterTimesheetsCmd.Flags().StringVar(&filterDeleteName, "delete", "", "Delete filter with given name")
+	filterTimesheetsCmd.Flags().StringVar(&filterDeleteName, "delete", "", "Delete the named filter")
 
-	filterTimesheetsCmd.Flags().StringVar(&fromDate, "from", "", "Filter from date (YYYY-MM-DD)")
-	filterTimesheetsCmd.Flags().StringVar(&toDate, "to", "", "Filter to date (YYYY-MM-DD)")
-	filterTimesheetsCmd.Flags().StringVar(&filterTicket, "ticket", "", "Filter by ticket number (contains)")
-	filterTimesheetsCmd.Flags().StringVar(&filterProject, "project", "", "Filter by project (substring match)")
-	filterTimesheetsCmd.Flags().BoolVar(&hasTicketOnly, "has-ticket-only", false, "Only timesheets with a ticket")
-	filterTimesheetsCmd.Flags().StringVar(&filterType, "type", "", "Filter by timesheet type")
-	filterTimesheetsCmd.Flags().StringVar(&filterDescription, "description", "", "Filter by description (regex)")
-	filterTimesheetsCmd.Flags().StringVar(&filterQuantity, "quantity", "", "Filter by quantity [>=|<=|=|<|>]<number>")
-
-	filterTimesheetsCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
-	filterTimesheetsCmd.RegisterFlagCompletionFunc("project", projectAliasCompletionFunc)
 	filterTimesheetsCmd.RegisterFlagCompletionFunc("delete", filterNameCompletionFunc)
 
 	rootCmd.AddCommand(filterTimesheetsCmd)
 }
 
+// filterTimesheetsCmd manages saved qlvm query strings for timesheet filtering.
+//
+// Saving a filter:
+//
+//	intracli filter-timesheets --save myproj "project = myproj AND date >= 2025-07-01"
+//
+// Using a saved filter elsewhere:
+//
+//	intracli list-timesheets  --filter myproj
+//	intracli date-summary     --filter-timesheet myproj
+//	intracli delete-timesheet --filter myproj
+//	intracli edit-timesheet   --filter myproj
+//
+// Query language quick-reference (qlvm):
+//
+//	ticket = "INC-123"       exact ticket match
+//	.ticket = INC            ticket contains "INC"
+//	#description = meeting   alias for regex description match
+//	has_ticket?              only entries with a ticket
+//	date >= 2025-07-01       date comparison (YYYY-MM-DD)
+//	hours > 4
+//	project = myalias        matches the project alias defined in your profile
+//	type = Normal
+//	description = "bug fix"
 var filterTimesheetsCmd = &cobra.Command{
-	Use:   "filter-timesheets",
-	Short: "Manage timesheet filters",
-	Long: `Create, save, and list reusable filters for timesheets.
+	Use:   "filter-timesheets [query]",
+	Short: "Manage saved timesheet filters (qlvm query strings)",
+	Long: `Save, list, or delete named qlvm query strings used to filter timesheets.
+
+The optional positional argument is the raw qlvm query string to save.
+
 Examples:
-  filter-timesheets --save myproj --project ProjectX --from 2025-07-01
-  filter-timesheets --list`,
+  intracli filter-timesheets --save myproj "project = myproj"
+  intracli filter-timesheets --save tickets "has_ticket?"
+  intracli filter-timesheets --save recent "date >= 2025-07-01 AND hours > 0"
+  intracli filter-timesheets --list
+  intracli filter-timesheets --delete myproj`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.InitializeConfig()
 		if err != nil {
@@ -59,52 +69,45 @@ Examples:
 
 		if filterList {
 			if len(cfg.SavedFilters) == 0 {
-				fmt.Println("No saved filters")
+				fmt.Println("No saved filters.")
 				return
 			}
-			fmt.Println("Saved filters:")
-			for name, f := range cfg.SavedFilters {
-				fmt.Printf(" - %s: %+v\n", name, f)
+			fmt.Println("Saved timesheet filters:")
+			for name, q := range cfg.SavedFilters {
+				fmt.Printf("  %-20s  %s\n", name, q)
 			}
 			return
 		}
 
 		if filterDeleteName != "" {
+			if _, ok := cfg.SavedFilters[filterDeleteName]; !ok {
+				log.Fatalf("Filter '%s' not found.", filterDeleteName)
+			}
 			delete(cfg.SavedFilters, filterDeleteName)
 			if err := config.SaveConfig(cfg); err != nil {
-				log.Fatalf("Failed to save filter: %v", err)
+				log.Fatalf("Failed to save config: %v", err)
 			}
 			fmt.Printf("Filter '%s' deleted.\n", filterDeleteName)
 			return
 		}
 
-		// Build filter from flags
-		filter := types.TimesheetFilter{
-			Name:          filterSaveName,
-			FromDate:      fromDate,
-			ToDate:        toDate,
-			Ticket:        filterTicket,
-			Project:       filterProject,
-			HasTicketOnly: hasTicketOnly,
-			Type:          filterType,
-			Description:   filterDescription,
-			Quantity:      filterQuantity,
-		}
-
 		if filterSaveName == "" {
-			fmt.Println("No action taken. Use --save <name> to save or --list to list filters.")
+			fmt.Println("No action taken. Use --save <name> [query], --list, or --delete <name>.")
 			return
 		}
 
+		query := ""
+		if len(args) > 0 {
+			query = args[0]
+		}
+
 		if cfg.SavedFilters == nil {
-			cfg.SavedFilters = make(map[string]types.TimesheetFilter)
+			cfg.SavedFilters = make(map[string]string)
 		}
-
-		cfg.SavedFilters[filterSaveName] = filter
+		cfg.SavedFilters[filterSaveName] = query
 		if err := config.SaveConfig(cfg); err != nil {
-			log.Fatalf("Failed to save filter: %v", err)
+			log.Fatalf("Failed to save config: %v", err)
 		}
-		fmt.Printf("Filter '%s' saved.\n", filterSaveName)
-
+		fmt.Printf("Filter '%s' saved: %q\n", filterSaveName, query)
 	},
 }

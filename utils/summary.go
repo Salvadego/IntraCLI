@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Salvadego/IntraCLI/config"
-	"github.com/Salvadego/IntraCLI/types"
 	"github.com/Salvadego/mantis/mantis"
 )
 
@@ -23,24 +22,23 @@ type DailySummary struct {
 	WorkloadBar string
 }
 
-func GenerateSummary(timesheets []mantis.TimesheetsResponse, prof config.Profile, filter types.DailyFilter) (
-	[]DailySummary, map[string]float64, map[string]float64,
-) {
-	filtered := ApplyDailyFilters(timesheets, filter)
-	if len(filtered) == 0 {
+func GenerateSummary(
+	timesheets []mantis.TimesheetsResponse,
+	prof config.Profile,
+	dayFilterQuery string,
+	minDailyHours float64,
+) ([]DailySummary, map[string]float64, map[string]float64) {
+	if len(timesheets) == 0 {
 		return nil, nil, nil
 	}
 
-	hoursByDate := groupByDate(filtered)
-	summaries := buildSummaries(hoursByDate, prof.DailyJourney, filter.MinDailyHours)
-	weekly, monthly := aggregateTotals(summaries)
+	hoursByDate := groupByDate(timesheets)
+	summaries := buildSummaries(hoursByDate, prof.DailyJourney, minDailyHours)
+	summaries = ApplyDailyFilters(summaries, dayFilterQuery)
 
+	weekly, monthly := aggregateTotals(summaries)
 	return summaries, weekly, monthly
 }
-
-// -------------------------
-//  STAGES
-// -------------------------
 
 func groupByDate(timesheets []mantis.TimesheetsResponse) map[string][]mantis.TimesheetsResponse {
 	result := make(map[string][]mantis.TimesheetsResponse)
@@ -55,8 +53,11 @@ func groupByDate(timesheets []mantis.TimesheetsResponse) map[string][]mantis.Tim
 	return result
 }
 
-func buildSummaries(grouped map[string][]mantis.TimesheetsResponse, journeyHours, minHours float64) []DailySummary {
-	var dates []string
+func buildSummaries(
+	grouped map[string][]mantis.TimesheetsResponse,
+	journeyHours, minHours float64,
+) []DailySummary {
+	dates := make([]string, 0, len(grouped))
 	for d := range grouped {
 		dates = append(dates, d)
 	}
@@ -69,13 +70,11 @@ func buildSummaries(grouped map[string][]mantis.TimesheetsResponse, journeyHours
 	var summaries []DailySummary
 	for _, d := range dates {
 		t, _ := time.Parse("2006-01-02", d)
-		day := grouped[d]
-		hours, project, user := summarizeDay(day)
-		status := classify(journeyHours, hours, minHours, 0.001)
+		hours, project, user := summarizeDay(grouped[d])
 		summaries = append(summaries, DailySummary{
 			Date:        d,
 			Hours:       hours,
-			Status:      status,
+			Status:      classify(journeyHours, hours, minHours, 0.001),
 			Project:     project,
 			User:        user,
 			Week:        weekNumber(t),
@@ -98,15 +97,13 @@ func aggregateTotals(summaries []DailySummary) (map[string]float64, map[string]f
 	return weekly, monthly
 }
 
-func summarizeDay(timesheets []mantis.TimesheetsResponse) (float64, string, string) {
-	var total float64
-	var project, user string
+func summarizeDay(timesheets []mantis.TimesheetsResponse) (hours float64, project, user string) {
 	for _, ts := range timesheets {
-		total += ts.Quantity
+		hours += ts.Quantity
 		project = ts.ProjectName
 		user = ts.ProjectManager
 	}
-	return total, project, user
+	return
 }
 
 func classify(journeyHours, hours, minHours, tol float64) string {
@@ -120,7 +117,7 @@ func classify(journeyHours, hours, minHours, tol float64) string {
 	}
 }
 
-func workloadBar(hours float64, target float64) string {
+func workloadBar(hours, target float64) string {
 	units := clamp(int((hours/target)*8), 0, 8)
 	return strings.Repeat("█", units) + strings.Repeat("░", 8-units)
 }

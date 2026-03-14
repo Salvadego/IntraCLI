@@ -19,7 +19,6 @@ designed to expand into other areas of Mantis operations.
       - [Bash](#bash)
       - [Zsh](#zsh)
       - [Fish](#fish)
-    - [Completion Features](#completion-features)
     - [Profiles](#profiles)
     - [Timesheets (Core Feature)](#timesheets-core-feature)
     - [Filters](#filters)
@@ -220,19 +219,6 @@ echo "source <(intracli completion zsh)" >> ~/.zshrc
 intracli completion fish > ~/.config/fish/completions/intracli.fish
 ```
 
-### Completion Features
-
-* Command and subcommand completion (`list-timesheets`, `edit-timesheet`, `filter-timesheets`, etc.)
-* Flag completion (`--profile`, `--filter`, `--project-alias`, `--id`, etc.)
-* Dynamic completion for profiles, saved filters, project aliases, and Mantis roles.
-
-Example:
-
-```bash
-intracli edit-timesheet --filter <TAB>
-# Autocompletes saved filter names
-```
-
 ---
 
 ### Profiles
@@ -257,14 +243,14 @@ intracli --profile myprofile list-timesheets
 
 ```bash
 intracli list-timesheets --year 2025 --month 10
-intracli list-timesheets --filter myfilter
+intracli list-timesheets --filter @myfilter
 ```
 
 * **Edit timesheets (batch or single):**
 
 ```bash
 intracli edit-timesheet --id 123 --hours 4 --description "Updated task"
-intracli edit-timesheet --filter myfilter --hours 6
+intracli edit-timesheet --filter @myfilter --hours 6
 ```
 
 * **Undo last deletion or edit:**
@@ -273,38 +259,29 @@ intracli edit-timesheet --filter myfilter --hours 6
 intracli undo-timesheet
 ```
 
-* **Summary generation:**
-
-```bash
-intracli date-summary
-```
-
 ---
 
 ### Filters
 
+IntraCLI uses a Query Language where the query is passed as a direct argument. You can combine keys using `AND`/`OR`. Use the `@` prefix to reference saved filters in commands.
+
 * **Create/save filter:**
 
 ```bash
-intracli filter-timesheets --save myfilter --project PROJX --from 2025-01-01 --to 2025-01-31 --has-ticket-only
+intracli filter-timesheets --save myfilter "project = PROJX AND date > 'last-week'"
 ```
 
-* **List filters:**
+* **List and Delete:**
 
 ```bash
 intracli filter-timesheets --list
-```
-
-* **Delete filter:**
-
-```bash
 intracli filter-timesheets --delete myfilter
 ```
 
-* **Daily filters:** (min hours, project, user, status)
+* **Daily filters:**
 
 ```bash
-intracli filter-days --save minhours --from 2025-01-01 --to 2025-01-31 --min-hours 8
+intracli filter-days --save missingHours "hours < 8"
 intracli filter-days --list
 ```
 
@@ -344,31 +321,30 @@ intracli roles --modify
 
 ## Examples
 
-* **Batch update hours for a project:**
-
+* **Filter by project:**
 ```bash
-intracli edit-timesheet --filter PROJXFilter --hours 7.5
+intracli filter-timesheets --save fromToyo "project = toyo"
 ```
 
-* **Filter timesheets with regex on description:**
 
+* **Filter by date range:**
 ```bash
-intracli filter-timesheets --save regexfilter --description "^Meeting.*"
+intracli filter-timesheets --save lastWeek "date > 'last-week' AND date < 'this-week'"
 ```
 
-* **Daily summary:**
 
+* **Daily summary using a saved filter:**
 ```bash
-intracli daily-summary --filter minHours
+intracli daily-summary --filter @missingHours
 ```
 
 ---
 
 ## Caveats
 
-* `edit-timesheet` deletes and recreates entries. Undo uses local cache; failure may cause permanent loss.
-* Quantity filters require format: `>=2.5`, `<=8`, `=4`.
-* Dates must be in `YYYY-MM-DD` format.
+* `edit-timesheet` deletes and recreates entries. Undo uses local cache.
+* **Duration Parsing:** Supports formats like `8h`, `4h30m`, or `1d` (1d = 8h).
+* **Relative Dates:** Supports keywords like `'today'`, `'yesterday'`, `'this-week'`, `'last-week'`.
 * Project alias matching is exact.
 * Role modification is interactive and cannot be scripted.
 
